@@ -1,5 +1,3 @@
-<img width="1024" height="1024" alt="RevampLeaderboards Logo" src="https://github.com/user-attachments/assets/22004250-ea97-4e4e-bf22-f742d12f6ac8" />
-
 # RevampLeaderboards
 
 [![SpigotMC](https://img.shields.io/badge/SpigotMC-✔️-blue.svg)](#)  
