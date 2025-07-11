@@ -1,0 +1,38 @@
+database:
+  host: "localhost"
+  port: 3306
+  database: "database"
+  user: "username"
+  password: ""
+
+messages:
+  nobody: "Ninguém"
+
+custom-placeholders:
+  # %lb_tag_<position>_total_<board>%
+  0:
+    can-be-null: false
+    data: tag
+    placeholder: "%leaftags_tag_prefix%"
+  # %lb_guild_<position>_total_<board>%
+  1:
+    can-be-null: true
+    data: guild
+    placeholder: "%leafguilds_guild_colortag%"
+
+scheduler:
+  update:
+    initial-delay-ticks: 20
+    period-ticks: 1200
+
+  reset:
+    daily:
+      time: "00:00"
+
+    weekly:
+      day: "SUNDAY"
+      time: "00:00"
+
+    monthly:
+      day: 1
+      time: "00:00"
