@@ -24,7 +24,7 @@ Plugin de **leaderboards** para Spigot/Paper que gera rankings **diário**, **se
 
 - Rankings **diário**, **semanal**, **mensal** e **total**  
 - **Cache** em memória (Guava) para alta performance  
-- Suporte a **MySQL** e **SQLite** (via HikariCP)  
+- Suporte a **MySQL** (via HikariCP)  
 - Placeholders padrão: `playername`, `uuid`, `amount`  
 - Placeholders **customizados** por jogador  
 - Criação/remoção de leaderboards em **runtime**  
