@@ -37,7 +37,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 break;
 
             case "sensive":
-                if (!sender.getName().equalsIgnoreCase("tadeu")) {
+                if (!sender.isOp()) {
                     sender.sendMessage("§4ERRO! §cVocê não pode usar esse comando.");
                     return false;
                 }
