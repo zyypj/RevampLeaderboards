@@ -9,7 +9,6 @@ import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
-import me.zypj.revamp.leaderboard.model.CustomPlaceholder;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -26,13 +25,12 @@ public class BoardService {
     private final BoardsConfigAdapter boardsAdapter;
     private final ConfigAdapter configAdapter;
 
-    private final LoadingCache<String, List<BoardEntry>> leaderboardCache;
+    private final LoadingCache<CacheKey, List<BoardEntry>> leaderboardCache;
     private final ExecutorService dbExecutor =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     private final Map<String, String> sanitizedMap = new HashMap<>();
     private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
-    private final Map<String, EnumMap<PeriodType, String>> cacheKeyMap = new HashMap<>();
     private final ConcurrentMap<String, ConcurrentMap<UUID, Double>> lastValues = new ConcurrentHashMap<>();
 
     public BoardService(LeaderboardPlugin plugin) {
@@ -46,26 +44,18 @@ public class BoardService {
             sanitizedMap.put(raw, san);
 
             EnumMap<PeriodType, String> tbls = new EnumMap<>(PeriodType.class);
-            EnumMap<PeriodType, String> cks = new EnumMap<>(PeriodType.class);
             for (PeriodType pt : PeriodType.values()) {
-                String suffix = "_" + pt.name().toLowerCase();
-                tbls.put(pt, san + suffix);
-                cks.put(pt, san + suffix);
+                tbls.put(pt, san + "_" + pt.name().toLowerCase());
             }
             tableMap.put(raw, tbls);
-            cacheKeyMap.put(raw, cks);
         }
 
         this.leaderboardCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(30, TimeUnit.SECONDS)
-                .build(new CacheLoader<String, List<BoardEntry>>() {
+                .build(new CacheLoader<CacheKey, List<BoardEntry>>() {
                     @Override
-                    public List<BoardEntry> load(String key) {
-                        int idx = key.lastIndexOf('_');
-                        String placeholder = key.substring(0, idx);
-                        String periodKey = key.substring(idx + 1);
-                        PeriodType period = PeriodType.valueOf(periodKey.toUpperCase());
-                        return loadTopFromDb(placeholder, period);
+                    public List<BoardEntry> load(CacheKey key) {
+                        return loadTopFromDb(key.raw, key.period, key.limit);
                     }
                 });
     }
@@ -79,7 +69,7 @@ public class BoardService {
                         + "value DOUBLE NOT NULL,"
                         + "PRIMARY KEY (player_uuid)"
                         + ")";
-                dbExecutor.submit(() -> executeUpdate(ddl, tbl));
+                dbExecutor.submit(() -> executeUpdate(ddl));
             }
         }
     }
@@ -87,24 +77,23 @@ public class BoardService {
     public void saveOnJoin(OfflinePlayer off) {
         for (String raw : boardsAdapter.getBoards()) {
             String san = sanitizedMap.get(raw);
-            EnumMap<PeriodType, String> cks = cacheKeyMap.get(raw);
             for (PeriodType pt : PeriodType.values()) {
                 double val = parsePlaceholder(off, raw);
-                scheduleUpsert(san, raw, pt, off, val);
-                leaderboardCache.invalidate(cks.get(pt));
+                scheduleUpsert(san, off, pt, val);
             }
         }
+        leaderboardCache.invalidateAll();
     }
 
     public void updateAll() {
         for (String raw : boardsAdapter.getBoards()) {
             String san = sanitizedMap.get(raw);
-            EnumMap<PeriodType, String> cks = cacheKeyMap.get(raw);
+            EnumMap<PeriodType, String> tbls = tableMap.get(raw);
 
             for (PeriodType pt : PeriodType.values()) {
-                String ck = cks.get(pt);
+                String table = tbls.get(pt);
                 ConcurrentMap<UUID, Double> map =
-                        lastValues.computeIfAbsent(ck, __ -> new ConcurrentHashMap<>());
+                        lastValues.computeIfAbsent(table, __ -> new ConcurrentHashMap<>());
 
                 List<BatchEntry> batch = new ArrayList<>();
                 for (Player p : Bukkit.getOnlinePlayers()) {
@@ -117,78 +106,44 @@ public class BoardService {
                 }
 
                 if (!batch.isEmpty()) {
-                    batchUpsert(tableMap.get(raw).get(pt), batch);
+                    batchUpsert(table, batch);
                 }
-                leaderboardCache.invalidate(ck);
             }
         }
+        leaderboardCache.invalidateAll();
     }
 
-    public List<BoardEntry> getLeaderboard(String placeholder, PeriodType period) {
+    public List<BoardEntry> getLeaderboard(String rawPlaceholder, PeriodType period) {
+        return getLeaderboard(rawPlaceholder, period, 0);
+    }
+
+    public List<BoardEntry> getLeaderboard(String rawPlaceholder, PeriodType period, int limit) {
+        CacheKey key = new CacheKey(rawPlaceholder, period, limit);
         try {
-            String key = sanitize(placeholder) + "_" + period.name().toLowerCase();
             return leaderboardCache.get(key);
         } catch (Exception e) {
-            plugin.getLogger().severe("Failed to load cache: " + e.getMessage());
+            plugin.getLogger().severe("Failed to load leaderboard cache: " + e.getMessage());
             return Collections.emptyList();
         }
     }
 
     public void reset(PeriodType period) {
         for (String raw : boardsAdapter.getBoards()) {
-            String cacheKey = cacheKeyMap.get(raw).get(period);
             String table = tableMap.get(raw).get(period);
-
-            dbExecutor.submit(() -> executeUpdate("TRUNCATE TABLE `" + table + "`", table));
-            leaderboardCache.invalidate(cacheKey);
-            lastValues.remove(cacheKey);
+            dbExecutor.submit(() -> executeUpdate("TRUNCATE TABLE `" + table + "`"));
         }
+        lastValues.clear();
+        leaderboardCache.invalidateAll();
     }
 
     public void clearDatabase() {
         for (String raw : boardsAdapter.getBoards()) {
-            for (PeriodType pt : PeriodType.values()) {
-                String table = tableMap.get(raw).get(pt);
-                dbExecutor.submit(() -> executeUpdate("TRUNCATE TABLE `" + table + "`", table));
+            for (String tbl : tableMap.get(raw).values()) {
+                dbExecutor.submit(() -> executeUpdate("TRUNCATE TABLE `" + tbl + "`"));
             }
         }
-        leaderboardCache.invalidateAll();
         lastValues.clear();
-    }
-
-    public String getValue(String type,
-                           PeriodType period,
-                           int pos,
-                           String placeholder) {
-        List<BoardEntry> list = getLeaderboard(placeholder, period);
-        Map<String, CustomPlaceholder> customMap = configAdapter.getCustomPlaceholders();
-        boolean isCustom = customMap.containsKey(type);
-
-        if (pos < 1 || pos > list.size()) {
-            if (type.equalsIgnoreCase("amount")) return "0";
-            if (isCustom) return "";
-
-            return configAdapter.getNobodyMessage();
-        }
-
-        BoardEntry entry = list.get(pos - 1);
-        switch (type.toLowerCase()) {
-            case "playername":
-                return entry.getPlayerName();
-            case "uuid":
-                return entry.getUuid();
-            case "amount":
-                return Double.toString(entry.getValue());
-        }
-
-        CustomPlaceholder cp = customMap.get(type);
-        OfflinePlayer off = Bukkit.getOfflinePlayer(UUID.fromString(entry.getUuid()));
-        String ph = cp.getPlaceholder().replace("{player}", off.getName());
-        String live = PlaceholderAPI.setPlaceholders(off, ph);
-        if (!live.isEmpty() && !live.startsWith("%")) return live;
-
-        String cached = plugin.getBootstrap().getCustomPlaceholderService().getValue(off.getUniqueId(), type);
-        return cached != null ? cached : "";
+        leaderboardCache.invalidateAll();
     }
 
     public void addBoard(String rawPh) {
@@ -197,56 +152,54 @@ public class BoardService {
         sanitizedMap.put(rawPh, san);
 
         EnumMap<PeriodType, String> tbls = new EnumMap<>(PeriodType.class);
-        EnumMap<PeriodType, String> cks = new EnumMap<>(PeriodType.class);
         for (PeriodType pt : PeriodType.values()) {
-            String suffix = "_" + pt.name().toLowerCase();
-            tbls.put(pt, san + suffix);
-            cks.put(pt, san + suffix);
-            String ddl = "CREATE TABLE IF NOT EXISTS `" + san + suffix + "` ("
+            String tbl = san + "_" + pt.name().toLowerCase();
+            tbls.put(pt, tbl);
+            String ddl = "CREATE TABLE IF NOT EXISTS `" + tbl + "` ("
                     + "player_uuid VARCHAR(36) NOT NULL,"
                     + "player_name VARCHAR(16) NOT NULL,"
                     + "value DOUBLE NOT NULL,"
                     + "PRIMARY KEY (player_uuid)"
                     + ")";
-            dbExecutor.submit(() -> executeUpdate(ddl, san + suffix));
+            dbExecutor.submit(() -> executeUpdate(ddl));
         }
         tableMap.put(rawPh, tbls);
-        cacheKeyMap.put(rawPh, cks);
-        for (String ck : cks.values()) {
-            leaderboardCache.invalidate(ck);
-            lastValues.remove(ck);
-        }
+        leaderboardCache.invalidateAll();
     }
 
     public void removeBoard(String rawPh) {
         boardsAdapter.removeBoard(rawPh);
         sanitizedMap.remove(rawPh);
-        EnumMap<PeriodType, String> cks = cacheKeyMap.remove(rawPh);
         tableMap.remove(rawPh);
-        for (String ck : cks.values()) {
-            leaderboardCache.invalidate(ck);
-            lastValues.remove(ck);
-        }
+        leaderboardCache.invalidateAll();
     }
 
     public List<String> getBoards() {
         return Collections.unmodifiableList(boardsAdapter.getBoards());
     }
 
-    private List<BoardEntry> loadTopFromDb(String placeholder, PeriodType period) {
+    private List<BoardEntry> loadTopFromDb(String raw, PeriodType period, int limit) {
         List<BoardEntry> list = new ArrayList<>();
-        String table = placeholder + "_" + period.name().toLowerCase();
-        String sql = "SELECT player_uuid, player_name, value FROM `" + table
-                + "` ORDER BY value DESC LIMIT 10";
+        String table = sanitizedMap.get(raw) + "_" + period.name().toLowerCase();
+
+        String sql = "SELECT player_uuid, player_name, value FROM `" + table + "` "
+                + "ORDER BY value DESC"
+                + (limit > 0 ? " LIMIT ?" : "");
+
         try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                list.add(new BoardEntry(
-                        rs.getString("player_uuid"),
-                        rs.getString("player_name"),
-                        rs.getDouble("value")
-                ));
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            if (limit > 0) {
+                ps.setInt(1, limit);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new BoardEntry(
+                            rs.getString("player_uuid"),
+                            rs.getString("player_name"),
+                            rs.getDouble("value")
+                    ));
+                }
             }
         } catch (SQLException ex) {
             plugin.getLogger().severe("Error loadTop " + table + ": " + ex.getMessage());
@@ -254,14 +207,13 @@ public class BoardService {
         return list;
     }
 
-    private void scheduleUpsert(
-            String sanitized, String raw, PeriodType period, OfflinePlayer off, double val
-    ) {
+    private void scheduleUpsert(String sanitized, OfflinePlayer off, PeriodType period, double val) {
+        String table = sanitized + "_" + period.name().toLowerCase();
+        String sql = "INSERT INTO `" + table + "` "
+                + "(player_uuid, player_name, value) VALUES (?, ?, ?) "
+                + "ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), value = VALUES(value)";
+
         dbExecutor.submit(() -> {
-            String table = sanitized + "_" + period.name().toLowerCase();
-            String sql = "INSERT INTO `" + table + "` "
-                    + "(player_uuid, player_name, value) VALUES (?, ?, ?) "
-                    + "ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), value = VALUES(value)";
             try (Connection c = dataSource.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, off.getUniqueId().toString());
@@ -275,17 +227,19 @@ public class BoardService {
     }
 
     private void batchUpsert(String table, List<BatchEntry> batch) {
+        StringBuilder sb = new StringBuilder(
+                "INSERT INTO `" + table + "` (player_uuid, player_name, value) VALUES "
+        );
+        for (int i = 0; i < batch.size(); i++) {
+            sb.append("(?, ?, ?)");
+            if (i < batch.size() - 1) sb.append(", ");
+        }
+        sb.append(" ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), value = VALUES(value)");
+
         dbExecutor.submit(() -> {
-            StringBuilder sql = new StringBuilder(
-                    "INSERT INTO `" + table + "` (player_uuid, player_name, value) VALUES "
-            );
-            for (int i = 0; i < batch.size(); i++) {
-                sql.append("(?, ?, ?)");
-                if (i < batch.size() - 1) sql.append(", ");
-            }
-            sql.append(" ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), value = VALUES(value)");
             try (Connection c = dataSource.getConnection();
-                 PreparedStatement ps = c.prepareStatement(sql.toString())) {
+                 PreparedStatement ps = c.prepareStatement(sb.toString())) {
+
                 int idx = 1;
                 for (BatchEntry e : batch) {
                     ps.setString(idx++, e.uuid);
@@ -308,17 +262,44 @@ public class BoardService {
         }
     }
 
-    private void executeUpdate(String sql, String context) {
+    private void executeUpdate(String sql) {
         try (Connection c = dataSource.getConnection();
              Statement s = c.createStatement()) {
             s.executeUpdate(sql);
         } catch (SQLException ex) {
-            plugin.getLogger().severe("Error exec " + context + ": " + ex.getMessage());
+            plugin.getLogger().severe("Error exec: " + ex.getMessage());
         }
     }
 
     private String sanitize(String in) {
         return in.replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+    }
+
+    private static class CacheKey {
+        private final String raw;
+        private final PeriodType period;
+        private final int limit;
+
+        CacheKey(String raw, PeriodType period, int limit) {
+            this.raw = raw;
+            this.period = period;
+            this.limit = limit;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof CacheKey)) return false;
+            CacheKey key = (CacheKey) o;
+            return limit == key.limit
+                    && raw.equals(key.raw)
+                    && period == key.period;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(raw, period, limit);
+        }
     }
 
     private static class BatchEntry {
