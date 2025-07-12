@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.expansion;
+package me.zypj.revamp.leaderboard.hook;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;

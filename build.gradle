@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id("io.freefair.lombok") version "8.14"
+    id("com.github.johnrengelman.shadow") version "7.1.0"
 }
 
 group = 'me.zypj'
@@ -16,6 +17,7 @@ dependencies {
     compileOnly 'me.clip:placeholderapi:2.11.6'
 
     implementation 'com.zaxxer:HikariCP:4.0.3'
+    implementation 'com.github.ben-manes.caffeine:caffeine:2.9.3'
 }
 
 def targetJavaVersion = 8
@@ -43,4 +45,10 @@ processResources {
     filesMatching('plugin.yml') {
         expand props
     }
+}
+
+shadowJar {
+    archiveClassifier.set("")
+    relocate 'com.github.benmanes.caffeine', 'me.zypj.revamp.lib.caffeine'
+    relocate 'com.zaxxer.hikari', 'me.zypj.revamp.lib.hikari'
 }

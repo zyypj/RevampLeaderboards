@@ -3,7 +3,7 @@ package me.zypj.revamp.leaderboard;
 import com.google.common.base.Stopwatch;
 import lombok.Getter;
 import me.zypj.revamp.leaderboard.commands.MainCommand;
-import me.zypj.revamp.leaderboard.expansion.LeaderBoardPlaceholderExpansion;
+import me.zypj.revamp.leaderboard.hook.LeaderBoardPlaceholderExpansion;
 import me.zypj.revamp.leaderboard.listener.PlayerListeners;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
 import org.bukkit.plugin.java.JavaPlugin;

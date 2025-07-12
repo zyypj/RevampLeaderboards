@@ -47,10 +47,9 @@ public class PluginBootstrap {
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
 
-        boardService.initTables();
+        boardService.init();
         boardService.updateAll();
 
-        schedulerService.scheduleUpdates();
-        schedulerService.scheduleResets();
+        schedulerService.scheduleAll();
     }
 }
