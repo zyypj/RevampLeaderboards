@@ -12,6 +12,7 @@ cache:
 
 messages:
   nobody: "Ninguém"
+  not-load: "---"
 
 custom-placeholders:
   # %lb_tag_<position>_total_<board>%

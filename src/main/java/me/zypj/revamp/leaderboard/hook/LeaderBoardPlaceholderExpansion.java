@@ -59,7 +59,7 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
             for (int i = 0; i < full.size(); i++) {
                 if (full.get(i).getUuid().equals(uuid)) return String.valueOf(i + 1);
             }
-            return plugin.getBootstrap().getConfigAdapter().getNobodyMessage();
+            return plugin.getBootstrap().getConfigAdapter().getNotLoadMessage();
         }
 
         String[] parts = params.split("_", 4);

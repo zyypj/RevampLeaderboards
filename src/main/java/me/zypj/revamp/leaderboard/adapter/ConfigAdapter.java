@@ -50,7 +50,11 @@ public class ConfigAdapter {
     }
 
     public String getNobodyMessage() {
-        return config.getString("messages.nobody");
+        return config.getString("messages.nobody", "Nobody").replace("&", "§");
+    }
+
+    public String getNotLoadMessage() {
+        return config.getString("messages.not-load", "---").replace("&", "§");
     }
 
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {
