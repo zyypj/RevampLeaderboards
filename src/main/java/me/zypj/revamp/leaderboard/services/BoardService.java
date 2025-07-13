@@ -95,6 +95,10 @@ public class BoardService {
         }
     }
 
+    public void invalidateCache() {
+        cache.invalidateAll();
+    }
+
     public List<BoardEntry> getLeaderboard(String raw, PeriodType period, int limit) {
         if (!sanitizedMap.containsKey(raw)) {
             throw new IllegalArgumentException("Unknown board: " + raw);
@@ -120,6 +124,18 @@ public class BoardService {
     public void clearDatabase() {
         tableMap.values().forEach(m -> m.values().forEach(repo::truncate));
         lastValues.clear();
+    }
+
+    public void clearBoard(String raw) {
+        if (!tableMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
+
+        EnumMap<PeriodType, String> m = tableMap.get(raw);
+        for (String table : m.values()) {
+            repo.truncate(table);
+            lastValues.remove(table);
+        }
+
+        invalidateCache();
     }
 
     public void addBoard(String raw) {

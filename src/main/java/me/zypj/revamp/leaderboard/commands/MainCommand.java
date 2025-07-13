@@ -33,22 +33,46 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             case "reload":
                 plugin.reloadConfig();
                 plugin.getBootstrap().getBoardsConfigAdapter().reload();
-                sender.sendMessage("§aLeaderBoard recarregado.");
+                sender.sendMessage("§aConfigurações e boards recarregadas.");
                 break;
 
+            case "verify":
+                plugin.reloadConfig();
+                plugin.getBootstrap().getBoardsConfigAdapter().reload();
+                sender.sendMessage("§aConfigurações e boards recarregadas.");
+
+                plugin.getBootstrap().getBoardService().invalidateCache();
+                sender.sendMessage("§aCache invalidado.");
+
+                plugin.getBootstrap().getBoardService().updateAll();
+                sender.sendMessage("§aBoards validadas.");
+                return true;
             case "sensive":
                 if (!sender.isOp()) {
                     sender.sendMessage("§4ERRO! §cVocê não pode usar esse comando.");
                     return false;
                 }
 
-                if (!args[1].equalsIgnoreCase("resetDatabase")) {
-                    sender.sendMessage("§4ERRO! §cComando incorreto.");
+                if (args.length < 2 || !args[1].equalsIgnoreCase("resetDatabase")) {
+                    sender.sendMessage("§4ERRO! §cUso: /lb sensive resetDatabase [board]");
                     return false;
                 }
 
-                plugin.getBootstrap().getBoardService().clearDatabase();
-                sender.sendMessage("§aFeito!");
+                if (args.length == 2) {
+                    plugin.getBootstrap().getBoardService().clearDatabase();
+                    sender.sendMessage("§aTodas as boards foram apagadas do banco.");
+                    return true;
+                }
+
+                String raw = args[2].replace("%", "")
+                        .replaceAll("[^a-zA-Z0-9_]", "")
+                        .toLowerCase();
+                try {
+                    plugin.getBootstrap().getBoardService().clearBoard(raw);
+                    sender.sendMessage("§aBoard '" + raw + "' removida do banco com sucesso.");
+                } catch (IllegalArgumentException ex) {
+                    sender.sendMessage("§4ERRO! §cBoard desconhecida: " + raw);
+                }
                 return true;
             case "board":
                 if (args.length < 2) {
@@ -105,11 +129,20 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            for (String sub : Arrays.asList("reload", "board")) {
+            for (String sub : Arrays.asList("reload", "board", "verify")) {
                 if (sub.startsWith(args[0].toLowerCase()))
                     completions.add(sub);
             }
             return completions;
+        }
+
+        if (args[0].equalsIgnoreCase("sensive") && args.length == 3) {
+            return plugin.getBootstrap()
+                    .getBoardService()
+                    .getBoards()
+                    .stream()
+                    .filter(b -> b.startsWith(args[2].toLowerCase()))
+                    .collect(Collectors.toList());
         }
 
         if (args[0].equalsIgnoreCase("board")) {
