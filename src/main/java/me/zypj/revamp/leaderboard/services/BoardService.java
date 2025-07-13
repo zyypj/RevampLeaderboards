@@ -100,12 +100,23 @@ public class BoardService {
     }
 
     public List<BoardEntry> getLeaderboard(String raw, PeriodType period, int limit) {
-        if (!sanitizedMap.containsKey(raw)) {
-            throw new IllegalArgumentException("Unknown board: " + raw);
-        }
+        if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
+
         CacheKey key = new CacheKey(raw, period, limit);
         try {
-            return cache.get(key);
+            List<BoardEntry> originals = cache.get(key);
+            assert originals != null;
+            List<BoardEntry> filtered = new ArrayList<>(originals.size());
+            for (BoardEntry entry : originals) {
+                UUID uuid = UUID.fromString(entry.getUuid());
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.hasPermission("leaderboard.bypass")) continue;
+
+                filtered.add(entry);
+            }
+
+            if (limit > 0 && filtered.size() > limit) return filtered.subList(0, limit);
+            return filtered;
         } catch (Exception ex) {
             plugin.getLogger().severe("Failed to load leaderboard: " + ex.getMessage());
             return Collections.emptyList();
