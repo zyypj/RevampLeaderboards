@@ -96,15 +96,15 @@ public class JdbcBoardRepository implements BoardRepository {
     @Override
     public List<BoardEntry> loadTop(String table, int limit) {
         List<BoardEntry> list = new ArrayList<>();
-        String sql = "SELECT player_uuid, player_name, value FROM `" + table + "` ORDER BY value DESC"
+        String sql = "SELECT player_uuid, player_name, value "
+                + "  FROM `" + table + "` "
+                + " ORDER BY value DESC, player_name ASC"
                 + (limit > 0 ? " LIMIT ?" : "");
 
         try (Connection c = ds.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
 
-            if (limit > 0) {
-                ps.setInt(1, limit);
-            }
+            if (limit > 0) ps.setInt(1, limit);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -120,6 +120,7 @@ public class JdbcBoardRepository implements BoardRepository {
         }
         return list;
     }
+
 
     private void exec(String sql) {
         try (Connection c = ds.getConnection();
