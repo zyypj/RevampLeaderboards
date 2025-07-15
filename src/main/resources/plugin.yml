@@ -3,7 +3,7 @@ version: '${version}'
 main: me.zypj.revamp.leaderboard.LeaderboardPlugin
 authors: [tadeu]
 website: https://github.com/zyypj
-softdepend: [PlaceholderAPI, Vault]
+softdepend: [PlaceholderAPI]
 commands:
   lb:
     aliases: [leaderboard]

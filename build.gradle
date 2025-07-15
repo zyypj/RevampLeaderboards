@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'me.zypj'
-version = '1.0'
+version = '2.0'
 
 repositories {
     mavenCentral()
@@ -13,6 +13,9 @@ repositories {
 }
 
 dependencies {
+    compileOnly files(
+            "libs/spigot-1.8.8.jar",
+    )
     compileOnly('me.clip:placeholderapi:2.11.6',)
 
     implementation(
