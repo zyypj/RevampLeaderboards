@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.expansion;
+package me.zypj.revamp.leaderboard.hook;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
@@ -12,6 +12,7 @@ import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +30,11 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
     @Override
     public @NotNull String getIdentifier() {
         return "lb";
+    }
+
+    @Override
+    public boolean persist() {
+        return true;
     }
 
     @Override
@@ -59,7 +65,7 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
             for (int i = 0; i < full.size(); i++) {
                 if (full.get(i).getUuid().equals(uuid)) return String.valueOf(i + 1);
             }
-            return plugin.getBootstrap().getConfigAdapter().getNobodyMessage();
+            return plugin.getBootstrap().getConfigAdapter().getNotLoadMessage();
         }
 
         String[] parts = params.split("_", 4);
@@ -79,7 +85,7 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
         List<BoardEntry> list = boardService.getLeaderboard(boardKey, period, position);
 
         if (position < 1 || list.size() < position) {
-            if ("amount".equalsIgnoreCase(dataType)) return "0";
+            if (dataType.equalsIgnoreCase("amount")) return "0";
             if (plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders().containsKey(dataType)) return "";
 
             return plugin.getBootstrap().getConfigAdapter().getNobodyMessage();
@@ -91,8 +97,14 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
                 return entry.getPlayerName();
             case "uuid":
                 return entry.getUuid();
-            case "amount":
-                return Double.toString(entry.getValue());
+            case "amount": {
+                double value = entry.getValue();
+                BigDecimal bd = BigDecimal.valueOf(value).stripTrailingZeros();
+                String formatted = bd.toPlainString();
+                if (formatted.contains(".")) formatted = formatted.replace('.', ',');
+
+                return formatted;
+            }
             default:
                 Map<String, CustomPlaceholder> customMap = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
                 if (!customMap.containsKey(dataType)) return "";

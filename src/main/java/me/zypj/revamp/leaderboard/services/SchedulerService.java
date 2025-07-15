@@ -3,18 +3,16 @@ package me.zypj.revamp.leaderboard.services;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 
 public class SchedulerService {
-    private final JavaPlugin plugin;
+
+    private final LeaderboardPlugin plugin;
     private final BoardService boardService;
     private final FileConfiguration cfg;
-    private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
     public SchedulerService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
@@ -22,88 +20,100 @@ public class SchedulerService {
         this.cfg = plugin.getConfig();
     }
 
-    public void scheduleResets() {
+    public void scheduleAll() {
+        scheduleUpdates();
         scheduleDaily();
         scheduleWeekly();
         scheduleMonthly();
     }
 
-    public void scheduleUpdates() {
-        long initialDelay = cfg.getLong("scheduler.update.initial-delay-ticks", 20L);
+    private void scheduleUpdates() {
+        long init = cfg.getLong("scheduler.update.initial-delay-ticks", 20L);
         long period = cfg.getLong("scheduler.update.period-ticks", 1200L);
-
         plugin.getServer().getScheduler()
-                .runTaskTimer(plugin, boardService::updateAll, initialDelay, period);
+                .runTaskTimer(plugin, boardService::updateAll, init, period);
     }
 
     private void scheduleDaily() {
         String timeStr = cfg.getString("scheduler.reset.daily.time", "00:00");
-
-        LocalTime time = LocalTime.parse(timeStr, timeFormatter);
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime next = now.with(time);
-
-        if (!next.isAfter(now)) next = next.plusDays(1);
-        long delay = computeDelay(next);
-
-        plugin.getServer().getScheduler()
-                .runTaskLater(plugin, () -> {
-                    boardService.reset(PeriodType.DAILY);
-                    scheduleDaily();
-                }, delay);
+        try {
+            LocalTime t = LocalTime.parse(timeStr);
+            long period = 20L * 60 * 60 * 24;
+            long delay = computeDelay(t);
+            plugin.getServer().getScheduler()
+                    .runTaskTimer(plugin,
+                            () -> boardService.reset(PeriodType.DAILY),
+                            delay, period);
+        } catch (DateTimeParseException ex) {
+            plugin.getLogger().warning("Invalid daily.time: " + timeStr);
+        }
     }
 
     private void scheduleWeekly() {
         String dayStr = cfg.getString("scheduler.reset.weekly.day", "SUNDAY");
-        DayOfWeek day = DayOfWeek.valueOf(dayStr.toUpperCase());
         String timeStr = cfg.getString("scheduler.reset.weekly.time", "00:00");
-
-        LocalTime time = LocalTime.parse(timeStr, timeFormatter);
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate nextDate = now.toLocalDate().with(TemporalAdjusters.nextOrSame(day));
-        LocalDateTime next = LocalDateTime.of(nextDate, time);
-
-        if (!next.isAfter(now)) next = next.plusWeeks(1);
-        long delay = computeDelay(next);
-
-
-        plugin.getServer().getScheduler()
-                .runTaskLater(plugin, () -> {
-                    boardService.reset(PeriodType.WEEKLY);
-                    scheduleWeekly();
-                }, delay);
+        try {
+            DayOfWeek dow = DayOfWeek.valueOf(dayStr.toUpperCase());
+            LocalTime t = LocalTime.parse(timeStr);
+            long period = 20L * 60 * 60 * 24 * 7;
+            long delay = computeDelay(dow, t);
+            plugin.getServer().getScheduler()
+                    .runTaskTimer(plugin,
+                            () -> boardService.reset(PeriodType.WEEKLY),
+                            delay, period);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Invalid weekly config: " + dayStr + "@" + timeStr);
+        }
     }
 
     private void scheduleMonthly() {
-        int dayOfMonth = cfg.getInt("scheduler.reset.monthly.day", 1);
-        String timeStr = cfg.getString("scheduler.reset.monthly.time", "00:00");
-
-        LocalTime time = LocalTime.parse(timeStr, timeFormatter);
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate date = now.toLocalDate();
-
-        int lastDay = date.lengthOfMonth();
-        dayOfMonth = Math.min(dayOfMonth, lastDay);
-        LocalDateTime next = LocalDateTime.of(date.withDayOfMonth(dayOfMonth), time);
-
-        if (!next.isAfter(now)) {
-            date = date.plusMonths(1);
-            lastDay = date.lengthOfMonth();
-            dayOfMonth = Math.min(cfg.getInt("scheduler.reset.monthly.day", 1), lastDay);
-            next = LocalDateTime.of(date.withDayOfMonth(dayOfMonth), time);
+        String day = cfg.getString("scheduler.reset.monthly.day", "1");
+        String time = cfg.getString("scheduler.reset.monthly.time", "00:00");
+        try {
+            int dom = Integer.parseInt(day);
+            LocalTime t = LocalTime.parse(time);
+            long delay = computeDelay(dom, t);
+            plugin.getServer().getScheduler()
+                    .runTaskLater(plugin, () -> {
+                        try {
+                            boardService.reset(PeriodType.MONTHLY);
+                        } finally {
+                            scheduleMonthly();
+                        }
+                    }, delay);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Invalid monthly config: " + day + "@" + time);
         }
-
-        long delay = computeDelay(next);
-
-        plugin.getServer().getScheduler()
-                .runTaskLater(plugin, () -> {
-                    boardService.reset(PeriodType.MONTHLY);
-                    scheduleMonthly();
-                }, delay);
     }
 
-    private long computeDelay(LocalDateTime target) {
-        long seconds = LocalDateTime.now().until(target, ChronoUnit.SECONDS);
+    private long computeDelay(LocalTime t) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime next = now.with(t);
+        if (!next.isAfter(now)) next = next.plusDays(1);
+        long seconds = Duration.between(now, next).getSeconds();
+        return seconds * 20L;
+    }
+
+    private long computeDelay(DayOfWeek dow, LocalTime t) {
+        LocalDate today = LocalDate.now();
+        LocalDate nextDate = today.with(TemporalAdjusters.nextOrSame(dow));
+        LocalDateTime next = LocalDateTime.of(nextDate, t);
+        if (!next.isAfter(LocalDateTime.now())) next = next.plusWeeks(1);
+        long seconds = Duration.between(LocalDateTime.now(), next).getSeconds();
+        return seconds * 20L;
+    }
+
+    private long computeDelay(int dayOfMonth, LocalTime t) {
+        LocalDate today = LocalDate.now();
+        int lastDay = today.lengthOfMonth();
+        int d = Math.min(dayOfMonth, lastDay);
+        LocalDateTime next = LocalDateTime.of(today.withDayOfMonth(d), t);
+        if (!next.isAfter(LocalDateTime.now())) {
+            LocalDate plus = today.plusMonths(1);
+            int ld = plus.lengthOfMonth();
+            next = LocalDateTime.of(plus.withDayOfMonth(Math.min(dayOfMonth, ld)), t);
+        }
+        long seconds = Duration.between(LocalDateTime.now(), next).getSeconds();
         return seconds * 20L;
     }
 }

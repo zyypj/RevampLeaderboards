@@ -32,12 +32,29 @@ public class ConfigAdapter {
         return config.getString("database.user");
     }
 
+    public int getDatabaseThreadPoolSize() {
+        return config.getInt("database.thread-pool-size",
+                Runtime.getRuntime().availableProcessors());
+    }
+
+    public int getCacheTtlSeconds() {
+        return config.getInt("cache.ttl-seconds", 30);
+    }
+
+    public int getCacheRefreshSeconds() {
+        return config.getInt("cache.refresh-seconds", 30);
+    }
+
     public String getDatabasePassword() {
         return config.getString("database.password");
     }
 
     public String getNobodyMessage() {
-        return config.getString("messages.nobody");
+        return config.getString("messages.nobody", "Nobody").replace("&", "§");
+    }
+
+    public String getNotLoadMessage() {
+        return config.getString("messages.not-load", "---").replace("&", "§");
     }
 
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {
