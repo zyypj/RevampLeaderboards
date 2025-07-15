@@ -2,6 +2,8 @@ package me.zypj.revamp.leaderboard.commands;
 
 import lombok.RequiredArgsConstructor;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
+import me.zypj.revamp.leaderboard.enums.PeriodType;
+import me.zypj.revamp.leaderboard.model.BoardEntry;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -109,6 +111,36 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                         boards.forEach(b -> sender.sendMessage(" - " + b));
                         break;
 
+                    case "test":
+                        if (args.length < 3) {
+                            sender.sendMessage("§cUso: /lb board test <placar>");
+                            break;
+                        }
+                        String rawTest = args[2].replace("%", "")
+                                .replaceAll("[^a-zA-Z0-9_]", "")
+                                .toLowerCase();
+                        List<String> registered = plugin.getBootstrap().getBoardService().getBoards();
+                        if (!registered.contains(rawTest)) {
+                            sender.sendMessage("§4ERRO! §cBoard desconhecida: " + rawTest);
+                            return false;
+                        }
+                        List<BoardEntry> top = plugin.getBootstrap()
+                                .getBoardService()
+                                .getLeaderboard(rawTest, PeriodType.TOTAL, 10);
+                        if (top.isEmpty()) {
+                            sender.sendMessage("§cPlacar '" + rawTest + "' está vazio.");
+                            return false;
+                        }
+                        sender.sendMessage("§6Top 10 do placar '" + rawTest + "':");
+                        for (int i = 0; i < top.size(); i++) {
+                            BoardEntry e = top.get(i);
+                            sender.sendMessage(
+                                    "§e" + (i + 1) + ". §f" + e.getPlayerName() +
+                                            " §7- §f" + e.getValue()
+                            );
+                        }
+                        break;
+
                     default:
                         sender.sendMessage("§cUso: /lb board <add|remove|list> [placeholder]");
                         break;
@@ -147,7 +179,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("board")) {
             if (args.length == 2) {
-                for (String sub : Arrays.asList("add", "remove", "list")) {
+                for (String sub : Arrays.asList("add", "remove", "list", "test")) {
                     if (sub.startsWith(args[1].toLowerCase()))
                         completions.add(sub);
                 }
@@ -155,7 +187,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             }
 
             if (args.length == 3) {
-                if (args[1].equalsIgnoreCase("remove")) {
+                if (args[1].equalsIgnoreCase("remove") || args[1].equalsIgnoreCase("test")) {
                     for (String b : plugin.getBootstrap().getBoardService().getBoards()) {
                         if (b.startsWith(args[2].toLowerCase()))
                             completions.add(b);

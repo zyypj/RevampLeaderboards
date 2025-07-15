@@ -33,6 +33,11 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
     }
 
     @Override
+    public boolean persist() {
+        return true;
+    }
+
+    @Override
     public @NotNull String getAuthor() {
         return plugin.getDescription().getAuthors().get(0);
     }

@@ -1,9 +1,9 @@
 database:
   host: "127.0.0.1"
   port: 3306
-  database: "brpixel"
-  user: "brpixel"
-  password: "1707Aa"
+  database: "database"
+  user: "user"
+  password: "password"
   thread-pool-size: 4
 
 cache:

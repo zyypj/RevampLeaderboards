@@ -1,20 +1,18 @@
 package me.zypj.revamp.leaderboard.listener;
 
+import lombok.RequiredArgsConstructor;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
-import me.zypj.revamp.leaderboard.services.BoardService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
+@RequiredArgsConstructor
 public class PlayerListeners implements Listener {
-    private final BoardService boardService;
-
-    public PlayerListeners(LeaderboardPlugin plugin) {
-        this.boardService = plugin.getBootstrap().getBoardService();
-    }
+    private final LeaderboardPlugin plugin;
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent e) {
-        boardService.saveOnJoin(e.getPlayer());
+        plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> plugin.getBootstrap().getBoardService().saveOnJoin(e.getPlayer()), 10L);
     }
 }
