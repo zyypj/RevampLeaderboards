@@ -96,9 +96,8 @@ public class JdbcBoardRepository implements BoardRepository {
     @Override
     public List<BoardEntry> loadTop(String table, int limit) {
         List<BoardEntry> list = new ArrayList<>();
-        String sql = "SELECT player_uuid, player_name, value "
-                + "  FROM `" + table + "` "
-                + " ORDER BY value DESC, player_name ASC"
+        String sql = "SELECT player_uuid, player_name, value FROM `"
+                + table + "`"
                 + (limit > 0 ? " LIMIT ?" : "");
 
         try (Connection c = ds.getConnection();
@@ -120,7 +119,6 @@ public class JdbcBoardRepository implements BoardRepository {
         }
         return list;
     }
-
 
     private void exec(String sql) {
         try (Connection c = ds.getConnection();

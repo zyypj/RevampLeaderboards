@@ -12,6 +12,8 @@ import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository.BoardBatchEntry;
 import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository;
 
+import me.zypj.revamp.leaderboard.services.sort.BoardSortingStrategy;
+import me.zypj.revamp.leaderboard.services.sort.ValueDescNameAscStrategy;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -25,7 +27,10 @@ public class BoardService {
     private final LeaderboardPlugin plugin;
     private final BoardsConfigAdapter boardsAdapter;
     private final BoardRepository repo;
+
     private final LoadingCache<CacheKey, List<BoardEntry>> cache;
+    private final BoardSortingStrategy sortingStrategy;
+
     private final Map<String, String> sanitizedMap = new HashMap<>();
     private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
     private final ConcurrentMap<String, ConcurrentMap<UUID, Double>> lastValues = new ConcurrentHashMap<>();
@@ -34,6 +39,8 @@ public class BoardService {
         this.plugin = plugin;
         this.boardsAdapter = plugin.getBootstrap().getBoardsConfigAdapter();
         ConfigAdapter cfg = plugin.getBootstrap().getConfigAdapter();
+
+        this.sortingStrategy = new ValueDescNameAscStrategy();
 
         int poolSize = cfg.getDatabaseThreadPoolSize();
         ExecutorService dbExec = Executors.newFixedThreadPool(poolSize);
@@ -100,20 +107,27 @@ public class BoardService {
     }
 
     public List<BoardEntry> getLeaderboard(String raw, PeriodType period, int limit) {
-        if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
+        if (!sanitizedMap.containsKey(raw))
+            throw new IllegalArgumentException("Unknown board: " + raw);
 
         CacheKey key = new CacheKey(raw, period, limit);
         try {
             List<BoardEntry> originals = cache.get(key);
             assert originals != null;
-            List<BoardEntry> filtered = new ArrayList<>(originals.size());
-            for (BoardEntry entry : originals) {
-                UUID uuid = UUID.fromString(entry.getUuid());
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.hasPermission("leaderboard.bypass")) continue;
 
+            Map<String, BoardEntry> unique = new LinkedHashMap<>();
+            for (BoardEntry entry : originals)
+                unique.putIfAbsent(entry.getUuid(), entry);
+            List<BoardEntry> deduped = new ArrayList<>(unique.values());
+
+            List<BoardEntry> filtered = new ArrayList<>(deduped.size());
+            for (BoardEntry entry : deduped) {
+                Player player = Bukkit.getPlayer(UUID.fromString(entry.getUuid()));
+                if (player != null && player.hasPermission("leaderboard.bypass")) continue;
                 filtered.add(entry);
             }
+
+            filtered.sort(sortingStrategy.comparator());
 
             if (limit > 0 && filtered.size() > limit) return filtered.subList(0, limit);
             return filtered;
