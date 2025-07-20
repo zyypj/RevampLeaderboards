@@ -16,7 +16,10 @@ dependencies {
     compileOnly files(
             "libs/spigot-1.8.8.jar",
     )
-    compileOnly('me.clip:placeholderapi:2.11.6',)
+    compileOnly(
+            'me.clip:placeholderapi:2.11.6',
+            'org.bstats:bstats-bukkit:3.0.2'
+    )
 
     implementation(
             'com.zaxxer:HikariCP:4.0.3',
@@ -55,4 +58,5 @@ shadowJar {
     archiveClassifier.set("")
     relocate 'com.github.benmanes.caffeine', 'me.zypj.revamp.lib.caffeine'
     relocate 'com.zaxxer.hikari', 'me.zypj.revamp.lib.hikari'
+    relocate 'org.bstats', 'me.zypj.revamp.lib.bstats'
 }
