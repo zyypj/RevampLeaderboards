@@ -1,6 +1,7 @@
 package me.zypj.revamp.leaderboard.commands.subcommands;
 
 import lombok.RequiredArgsConstructor;
+import me.clip.placeholderapi.PlaceholderAPI;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.commands.ISubCommand;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
@@ -123,6 +124,13 @@ public class BoardCommand implements ISubCommand {
                             .replace("{value}", String.valueOf(e.getValue()))
                     );
                 }
+
+                String remainsPh = "%lb_remains_total_" + rawTest + "%";
+                String remaining = PlaceholderAPI.setPlaceholders(null, remainsPh);
+                sender.sendMessage(plugin.getBootstrap()
+                        .getMessagesAdapter()
+                        .getMessage("commands.board.test.reset-message")
+                        .replace("{remaing}", remaining));
                 break;
 
             default:

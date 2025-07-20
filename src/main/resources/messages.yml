@@ -2,6 +2,25 @@ messages:
   no-permission: "&4&lERRO! &cVocê não tem permissão para isso!"
   nobody: "Ninguém"
   not-load: "---"
+  # Valid for days and day
+  when-days-missing: "{dd} {day-meaning}"
+  # Valid for hours and hour
+  # You can use {hour-meaning} and {minute-meaning}
+  when-hours-missing: "{hh}:{mm} {hour-meaning}"
+  # Valid for minutes and minute
+  # You can use {minute-meaning} and {second-meaning}
+  when-minutes-missing: "{mm}:{ss} {minute-meaning} "
+  # Valid for seconds and second
+  when-seconds-missing: "{mm}:{ss} {second-meaning} "
+  meaning-days: "dias"
+  meaning-day: "dia"
+  meaning-hours: "horas"
+  meaning-hour: "hora"
+  meaning-minutes: "minutos"
+  meaning-minute: "minuto"
+  meaning-seconds: "segundos"
+  meaning-second: "segundo"
+  meaning-never: "Nunca"
   commands:
     reload:
       success: "&aConfigurações e boards recarregadas!"
@@ -31,3 +50,4 @@ messages:
         board-empty: "&cA board '{board}' está vazia!"
         top-message: "&6Top 10 da board '{board}'"
         player-message: "&e{position}. &f{player-name} &7- &f{value}"
+        reset-message: "&fReseta em &e{remaing}."
