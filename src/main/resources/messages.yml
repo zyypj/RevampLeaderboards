@@ -6,12 +6,12 @@ messages:
   when-days-missing: "{dd} {day-meaning}"
   # Valid for hours and hour
   # You can use {hour-meaning} and {minute-meaning}
-  when-hours-missing: "{hh}:{mm} {hour-meaning}"
+  when-hours-missing: "{hh}{hour-meaning}"
   # Valid for minutes and minute
   # You can use {minute-meaning} and {second-meaning}
-  when-minutes-missing: "{mm}:{ss} {minute-meaning} "
+  when-minutes-missing: "{mm} {minute-meaning} "
   # Valid for seconds and second
-  when-seconds-missing: "{mm}:{ss} {second-meaning} "
+  when-seconds-missing: "{ss} {second-meaning} "
   meaning-days: "dias"
   meaning-day: "dia"
   meaning-hours: "horas"
