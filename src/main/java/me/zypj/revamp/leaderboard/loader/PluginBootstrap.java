@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
+import me.zypj.revamp.leaderboard.adapter.MessagesAdapter;
 import me.zypj.revamp.leaderboard.services.BoardService;
 import me.zypj.revamp.leaderboard.services.CustomPlaceholderService;
 import me.zypj.revamp.leaderboard.services.DatabaseService;
@@ -17,6 +18,7 @@ public class PluginBootstrap {
     private final LeaderboardPlugin plugin;
 
     private ConfigAdapter configAdapter;
+    private MessagesAdapter messagesAdapter;
     private BoardsConfigAdapter boardsConfigAdapter;
 
     private DatabaseService databaseService;
@@ -35,6 +37,7 @@ public class PluginBootstrap {
         plugin.saveDefaultConfig();
 
         configAdapter = new ConfigAdapter(plugin);
+        messagesAdapter = new MessagesAdapter(plugin);
         boardsConfigAdapter = new BoardsConfigAdapter(plugin);
     }
 

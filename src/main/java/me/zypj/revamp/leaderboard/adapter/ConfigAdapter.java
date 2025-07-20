@@ -49,14 +49,6 @@ public class ConfigAdapter {
         return config.getString("database.password");
     }
 
-    public String getNobodyMessage() {
-        return config.getString("messages.nobody", "Nobody").replace("&", "§");
-    }
-
-    public String getNotLoadMessage() {
-        return config.getString("messages.not-load", "---").replace("&", "§");
-    }
-
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {
         Map<String, CustomPlaceholder> map = new HashMap<>();
         ConfigurationSection section = config.getConfigurationSection("custom-placeholders");

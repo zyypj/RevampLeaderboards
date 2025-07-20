@@ -10,10 +10,6 @@ cache:
   ttl-seconds: 30
   refresh-seconds: 30
 
-messages:
-  nobody: "Ninguém"
-  not-load: "---"
-
 custom-placeholders:
   # %lb_tag_<position>_total_<board>%
   0:
