@@ -24,6 +24,8 @@ messages:
   meaning-never: "Never"
 
   commands:
+    usage: "&4&lERROR! &cUse: {label} <subcommand>."
+    subcommand-not-found: "&4&lERROR! &cSub-command not found."
     reload:
       success: "&aConfigurations and boards reloaded!"
     verify:

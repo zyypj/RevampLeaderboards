@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 public class CommandManager implements CommandExecutor, TabCompleter {
 
+    private final LeaderboardPlugin plugin;
     private final Map<String, ISubCommand> commands = new HashMap<>();
 
     public CommandManager(LeaderboardPlugin plugin, String label, ISubCommand... subs) {
@@ -16,6 +17,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
             commands.put(sub.name(), sub);
             for (String a : sub.aliases()) commands.put(a, sub);
         }
+        this.plugin = plugin;
         PluginCommand cmd = plugin.getCommand(label);
         cmd.setExecutor(this);
         cmd.setTabCompleter(this);
@@ -24,26 +26,24 @@ public class CommandManager implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§cUso: /" + label + " <subcomando>");
+            sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.usage").replace("{label}", label));
             return false;
         }
         ISubCommand sub = commands.get(args[0].toLowerCase());
         if (sub == null) {
-            sender.sendMessage("§cSubcomando não encontrado.");
+            sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.subcommand-not-found"));
             return false;
         }
         if (!sub.allowConsole() && !(sender instanceof Player)) {
-            sender.sendMessage("§cApenas jogadores podem usar este comando.");
+            sender.sendMessage("§cOnly players can use this command.");
             return false;
         }
         if (!sub.hasPermission(sender)) {
-            sender.sendMessage("§cSem permissão.");
+            sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("no-permission"));
             return false;
         }
         String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
-        boolean ok = sub.execute(sender, subArgs);
-        if (!ok) sender.sendMessage("§cUso correto: " + sub.usage());
-        return ok;
+        return sub.execute(sender, subArgs);
     }
 
     @Override
