@@ -10,13 +10,11 @@ import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository.BoardBatchEntry;
-import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import javax.sql.DataSource;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -24,7 +22,7 @@ public class BoardService {
 
     private final LeaderboardPlugin plugin;
     private final BoardsConfigAdapter boardsAdapter;
-    private final BoardRepository repo;
+    private final BoardRepository boardRepository;
     private final LoadingCache<CacheKey, List<BoardEntry>> cache;
     private final Map<String, String> sanitizedMap = new HashMap<>();
     private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
@@ -35,10 +33,7 @@ public class BoardService {
         this.boardsAdapter = plugin.getBootstrap().getBoardsConfigAdapter();
         ConfigAdapter cfg = plugin.getBootstrap().getConfigAdapter();
 
-        int poolSize = cfg.getDatabaseThreadPoolSize();
-        ExecutorService dbExec = Executors.newFixedThreadPool(poolSize);
-        DataSource ds = plugin.getBootstrap().getDatabaseService().getDataSource();
-        this.repo = new JdbcBoardRepository(ds, dbExec);
+        boardRepository = plugin.getBootstrap().getBoardRepository();
 
         for (String raw : boardsAdapter.getBoards()) {
             String san = sanitize(raw);
@@ -55,14 +50,14 @@ public class BoardService {
                 .refreshAfterWrite(cfg.getCacheRefreshSeconds(), TimeUnit.SECONDS)
                 .build(key -> {
                     String table = sanitizedMap.get(key.raw) + "_" + key.period.name().toLowerCase();
-                    return repo.loadTop(table, key.limit);
+                    return boardRepository.loadTop(table, key.limit);
                 });
     }
 
     public void init() {
         List<String> all = new ArrayList<>();
         tableMap.values().forEach(m -> all.addAll(m.values()));
-        repo.initTables(all);
+        boardRepository.initTables(all);
     }
 
     public void saveOnJoin(OfflinePlayer off) {
@@ -70,7 +65,7 @@ public class BoardService {
             EnumMap<PeriodType, String> m = tableMap.get(raw);
             for (Map.Entry<PeriodType, String> e : m.entrySet()) {
                 double v = parsePlaceholder(off, raw);
-                repo.save(e.getValue(), off.getUniqueId().toString(), off.getName(), v);
+                boardRepository.save(e.getValue(), off.getUniqueId().toString(), off.getName(), v);
             }
         }
     }
@@ -90,7 +85,7 @@ public class BoardService {
                         batch.add(new BoardBatchEntry(id.toString(), p.getName(), nv));
                     }
                 }
-                repo.batchSave(table, batch);
+                boardRepository.batchSave(table, batch);
             }
         }
     }
@@ -122,12 +117,12 @@ public class BoardService {
     }
 
     public void reset(PeriodType period) {
-        tableMap.values().forEach(m -> repo.truncate(m.get(period)));
+        tableMap.values().forEach(m -> boardRepository.truncate(m.get(period)));
         lastValues.clear();
     }
 
     public void clearDatabase() {
-        tableMap.values().forEach(m -> m.values().forEach(repo::truncate));
+        tableMap.values().forEach(m -> m.values().forEach(boardRepository::truncate));
         lastValues.clear();
     }
 
@@ -136,7 +131,7 @@ public class BoardService {
 
         EnumMap<PeriodType, String> m = tableMap.get(raw);
         for (String table : m.values()) {
-            repo.truncate(table);
+            boardRepository.truncate(table);
             lastValues.remove(table);
         }
 
@@ -152,7 +147,7 @@ public class BoardService {
             m.put(pt, san + "_" + pt.name().toLowerCase());
         }
         tableMap.put(raw, m);
-        repo.initTables(new ArrayList<>(m.values()));
+        boardRepository.initTables(new ArrayList<>(m.values()));
     }
 
     public void removeBoard(String raw) {

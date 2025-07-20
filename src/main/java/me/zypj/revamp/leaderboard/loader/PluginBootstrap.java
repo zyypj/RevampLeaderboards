@@ -6,10 +6,16 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.MessagesAdapter;
+import me.zypj.revamp.leaderboard.repository.BoardRepository;
+import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository;
+import me.zypj.revamp.leaderboard.repository.SQLiteBoardRepository;
 import me.zypj.revamp.leaderboard.services.BoardService;
 import me.zypj.revamp.leaderboard.services.CustomPlaceholderService;
 import me.zypj.revamp.leaderboard.services.DatabaseService;
 import me.zypj.revamp.leaderboard.services.SchedulerService;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Getter
 @RequiredArgsConstructor
@@ -22,6 +28,7 @@ public class PluginBootstrap {
     private BoardsConfigAdapter boardsConfigAdapter;
 
     private DatabaseService databaseService;
+    private BoardRepository boardRepository;
 
     private BoardService boardService;
     private CustomPlaceholderService customPlaceholderService;
@@ -43,6 +50,12 @@ public class PluginBootstrap {
 
     private void setupDatabase() {
         databaseService = new DatabaseService(plugin);
+
+        ExecutorService dbExec = Executors.newFixedThreadPool(configAdapter.getDatabaseThreadPoolSize());
+
+        boardRepository = "sqlite".equalsIgnoreCase(configAdapter.getDatabaseType())
+                ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExec)
+                : new JdbcBoardRepository(databaseService.getDataSource(), dbExec);
     }
 
     private void setupServices() {
