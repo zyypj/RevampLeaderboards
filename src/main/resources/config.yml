@@ -27,8 +27,10 @@ custom-placeholders:
 
 scheduler:
   update:
-    initial-delay-ticks: 20
-    period-ticks: 1200
+    # delay before first run, in seconds
+    initial-delay-seconds: 1
+    # period between runs, in seconds
+    period-seconds: 60
 
   reset:
     daily:
