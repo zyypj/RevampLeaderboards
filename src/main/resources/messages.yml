@@ -1,53 +1,55 @@
 messages:
-  no-permission: "&4&lERRO! &cVocê não tem permissão para isso!"
-  nobody: "Ninguém"
+  no-permission: "&4&lERROR! &cYou do not have permission to do that!"
+  nobody: "Nobody"
   not-load: "---"
-  # Valid for days and day
+  # Template for days (singular/plural)
   when-days-missing: "{dd} {day-meaning}"
-  # Valid for hours and hour
+  # Template for hours (singular/plural)
   # You can use {hour-meaning} and {minute-meaning}
   when-hours-missing: "{hh}{hour-meaning}"
-  # Valid for minutes and minute
+  # Template for minutes (singular/plural)
   # You can use {minute-meaning} and {second-meaning}
-  when-minutes-missing: "{mm} {minute-meaning} "
-  # Valid for seconds and second
-  when-seconds-missing: "{ss} {second-meaning} "
-  meaning-days: "dias"
-  meaning-day: "dia"
-  meaning-hours: "horas"
-  meaning-hour: "hora"
-  meaning-minutes: "minutos"
-  meaning-minute: "minuto"
-  meaning-seconds: "segundos"
-  meaning-second: "segundo"
-  meaning-never: "Nunca"
+  when-minutes-missing: "{mm} {minute-meaning}"
+  # Template for seconds (singular/plural)
+  # You can use {second-meaning}
+  when-seconds-missing: "{ss} {second-meaning}"
+  meaning-days: "days"
+  meaning-day: "day"
+  meaning-hours: "hours"
+  meaning-hour: "hour"
+  meaning-minutes: "minutes"
+  meaning-minute: "minute"
+  meaning-seconds: "seconds"
+  meaning-second: "second"
+  meaning-never: "Never"
+
   commands:
     reload:
-      success: "&aConfigurações e boards recarregadas!"
+      success: "&aConfigurations and boards reloaded!"
     verify:
-      reload: "&aConfigurações e boards recarregadas!"
-      invalidate-cache: "&aCache invalidado!"
-      boards-updated: "&aBoards validadas!"
+      reload: "&aConfigurations reloaded!"
+      invalidate-cache: "&aCache invalidated!"
+      boards-updated: "&aBoards verified!"
     sensive:
-      usage: "&4&lERRO! &cUse: {usage}."
-      board-not-found: "&4&lERRO! &cBoard não encontrada: {board}."
-      boards-del: "&aTodas as boards foram apagadas do banco de dados."
-      board-del: "&aBoard '{board}' apagada do banco de dados com sucesso!"
+      usage: "&4&lERROR! &cUse: {usage}."
+      board-not-found: "&4&lERROR! &cBoard not found: {board}."
+      boards-del: "&aAll boards cleared from the database."
+      board-del: "&aBoard '{board}' deleted from the database successfully!"
     board:
-      usage: "&4&lERRO! &cUse: {usage}."
+      usage: "&4&lERROR! &cUse: {usage}."
       add:
-        usage: "&4&lERRO! &cUse: {usage}."
-        board-added: "&aBoard '{board}' adicionada com sucesso!"
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-added: "&aBoard '{board}' added successfully!"
       remove:
-        usage: "&4&lERRO! &cUse: {usage}."
-        board-del: "&eBoard '{board}' removida com sucesso!"
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-del: "&eBoard '{board}' removed successfully!"
       list:
-        top-message: "&6Boards registradas:"
+        top-message: "&6Registered boards:"
         board-message: " &7- &f{board}"
       test:
-        usage: "&4&lERRO! &cUse: {usage}."
-        board-not-found: "&4&lERRO! &cBoard não encontrada: {board}."
-        board-empty: "&cA board '{board}' está vazia!"
-        top-message: "&6Top 10 da board '{board}'"
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-not-found: "&4&lERROR! &cBoard not found: {board}."
+        board-empty: "&cThe board '{board}' is empty!"
+        top-message: "&6Top 10 of board '{board}'"
         player-message: "&e{position}. &f{player-name} &7- &f{value}"
-        reset-message: "&fReseta em &e{remaing}."
+        reset-message: "&fResets in &e{remaing}."
