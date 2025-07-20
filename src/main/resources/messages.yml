@@ -2,3 +2,32 @@ messages:
   no-permission: "&4&lERRO! &cVocê não tem permissão para isso!"
   nobody: "Ninguém"
   not-load: "---"
+  commands:
+    reload:
+      success: "&aConfigurações e boards recarregadas!"
+    verify:
+      reload: "&aConfigurações e boards recarregadas!"
+      invalidate-cache: "&aCache invalidado!"
+      boards-updated: "&aBoards validadas!"
+    sensive:
+      usage: "&4&lERRO! &cUse: {usage}."
+      board-not-found: "&4&lERRO! &cBoard não encontrada: {board}."
+      boards-del: "&aTodas as boards foram apagadas do banco de dados."
+      board-del: "&aBoard '{board}' apagada do banco de dados com sucesso!"
+    board:
+      usage: "&4&lERRO! &cUse: {usage}."
+      add:
+        usage: "&4&lERRO! &cUse: {usage}."
+        board-added: "&aBoard '{board}' adicionada com sucesso!"
+      remove:
+        usage: "&4&lERRO! &cUse: {usage}."
+        board-del: "&eBoard '{board}' removida com sucesso!"
+      list:
+        top-message: "&6Boards registradas:"
+        board-message: " &7- &f{board}"
+      test:
+        usage: "&4&lERRO! &cUse: {usage}."
+        board-not-found: "&4&lERRO! &cBoard não encontrada: {board}."
+        board-empty: "&cA board '{board}' está vazia!"
+        top-message: "&6Top 10 da board '{board}'"
+        player-message: "&e{position}. &f{player-name} &7- &f{value}"

@@ -2,7 +2,11 @@ package me.zypj.revamp.leaderboard;
 
 import com.google.common.base.Stopwatch;
 import lombok.Getter;
-import me.zypj.revamp.leaderboard.commands.MainCommand;
+import me.zypj.revamp.leaderboard.commands.CommandManager;
+import me.zypj.revamp.leaderboard.commands.subcommands.BoardCommand;
+import me.zypj.revamp.leaderboard.commands.subcommands.ReloadCommand;
+import me.zypj.revamp.leaderboard.commands.subcommands.SensiveCommand;
+import me.zypj.revamp.leaderboard.commands.subcommands.VerifyCommand;
 import me.zypj.revamp.leaderboard.hook.LeaderBoardPlaceholderExpansion;
 import me.zypj.revamp.leaderboard.listener.PlayerListeners;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
@@ -29,9 +33,14 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
         new LeaderBoardPlaceholderExpansion(this).register();
 
-        MainCommand mainCommand = new MainCommand(this);
-        getCommand("lb").setExecutor(mainCommand);
-        getCommand("lb").setTabCompleter(mainCommand);
+        new CommandManager(
+                this,
+                "lb",
+                new BoardCommand(this),
+                new ReloadCommand(this),
+                new SensiveCommand(this),
+                new VerifyCommand(this)
+                );
 
         getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
 
