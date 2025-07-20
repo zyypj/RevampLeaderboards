@@ -35,7 +35,7 @@ public class BoardCommand implements ISubCommand {
 
     @Override
     public boolean hasPermission(CommandSender sender) {
-        return sender.hasPermission("leaderboard.use");
+        return sender.hasPermission("leaderboard.board");
     }
 
     @Override
