@@ -2,6 +2,8 @@ package me.zypj.revamp.leaderboard;
 
 import com.google.common.base.Stopwatch;
 import lombok.Getter;
+import me.zypj.revamp.leaderboard.api.LeaderboardApi;
+import me.zypj.revamp.leaderboard.api.impl.LeaderboardApiImpl;
 import me.zypj.revamp.leaderboard.commands.CommandManager;
 import me.zypj.revamp.leaderboard.commands.subcommands.BoardCommand;
 import me.zypj.revamp.leaderboard.commands.subcommands.ReloadCommand;
@@ -11,6 +13,7 @@ import me.zypj.revamp.leaderboard.hook.LeaderBoardPlaceholderExpansion;
 import me.zypj.revamp.leaderboard.listener.PlayerListeners;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
 import me.zypj.revamp.leaderboard.shared.Metrics;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
@@ -47,6 +50,8 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
 
+        registerApi();
+
         getLogger().info("Plugin iniciado em " + stopwatch.stop() + "!");
         getLogger().info("");
     }
@@ -68,5 +73,11 @@ public final class LeaderboardPlugin extends JavaPlugin {
         }
 
         return true;
+    }
+
+    private void registerApi() {
+        LeaderboardApi api = new LeaderboardApiImpl(bootstrap);
+        getServer().getServicesManager()
+                .register(LeaderboardApi.class, api, this, ServicePriority.Normal);
     }
 }
