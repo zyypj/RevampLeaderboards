@@ -23,7 +23,8 @@ dependencies {
 
     implementation(
             'com.zaxxer:HikariCP:4.0.3',
-            'com.github.ben-manes.caffeine:caffeine:2.9.3'
+            'com.github.ben-manes.caffeine:caffeine:2.9.3',
+            'com.google.code.gson:gson:2.13.1',
     )
 }
 
@@ -59,4 +60,7 @@ shadowJar {
     relocate 'com.github.benmanes.caffeine', 'me.zypj.revamp.lib.caffeine'
     relocate 'com.zaxxer.hikari', 'me.zypj.revamp.lib.hikari'
     relocate 'org.bstats', 'me.zypj.revamp.lib.bstats'
+    relocate 'org.checkerframework', 'me.zypj.revamp.lib.org.checkerframework'
+    relocate 'org.slf4j', 'me.zypj.revamp.lib.org.slf4j'
+    relocate 'com.google.errorprone.annotations', 'me.zypj.revamp.lib.com.google.errorprone.annotations'
 }

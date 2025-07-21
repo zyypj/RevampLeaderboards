@@ -59,4 +59,13 @@ scheduler:
       # Time of day for monthly leaderboard reset (HH:mm)
       time: "00:00"
 
+history:
+  schedule:
+    daily:
+      # Time of day to capture daily history snapshot (HH:mm)
+      time: "00:00"
+    weekly:
+      # Day of week to capture weekly history snapshot (MONDAY, TUESDAY, …, SUNDAY)
+      day: "MONDAY"
+      # Time of day to capture weekly history snapshot (HH:mm)
       time: "00:00"

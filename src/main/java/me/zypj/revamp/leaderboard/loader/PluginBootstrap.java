@@ -6,6 +6,7 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.MessagesAdapter;
+import me.zypj.revamp.leaderboard.repository.ArchiveRepository;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcArchiveRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository;
@@ -28,10 +29,12 @@ public class PluginBootstrap {
 
     private DatabaseService databaseService;
     private BoardRepository boardRepository;
+    private ArchiveRepository archiveRepository;
 
     private BoardService boardService;
     private CustomPlaceholderService customPlaceholderService;
     private SchedulerService schedulerService;
+    private HistoryService historyService;
 
     public void init() {
         setupFiles();
@@ -44,9 +47,11 @@ public class PluginBootstrap {
 
         configAdapter = new ConfigAdapter(plugin);
         messagesAdapter = new MessagesAdapter(plugin);
+        applicationAdapter = new ApplicationAdapter(plugin);
         boardsConfigAdapter = new BoardsConfigAdapter(plugin);
 
         messagesAdapter.init();
+        applicationAdapter.init();
     }
 
     private void setupDatabase() {
@@ -57,12 +62,14 @@ public class PluginBootstrap {
         boardRepository = "sqlite".equalsIgnoreCase(configAdapter.getDatabaseType())
                 ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExec)
                 : new JdbcBoardRepository(databaseService.getDataSource(), dbExec);
+        archiveRepository = new JdbcArchiveRepository(databaseService.getDataSource(), dbExec);
     }
 
     private void setupServices() {
         boardService = new BoardService(plugin);
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
+        historyService = new HistoryService(plugin);
 
         boardService.init();
         boardService.updateAll();

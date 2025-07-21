@@ -43,7 +43,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
                 new ReloadCommand(this),
                 new SensiveCommand(this),
                 new VerifyCommand(this)
-                );
+        );
 
         getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
 
