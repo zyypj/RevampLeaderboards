@@ -7,13 +7,12 @@ import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.MessagesAdapter;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
-import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository;
-import me.zypj.revamp.leaderboard.repository.SQLiteBoardRepository;
-import me.zypj.revamp.leaderboard.services.BoardService;
-import me.zypj.revamp.leaderboard.services.CustomPlaceholderService;
-import me.zypj.revamp.leaderboard.services.DatabaseService;
-import me.zypj.revamp.leaderboard.services.SchedulerService;
-
+import me.zypj.revamp.leaderboard.repository.impl.JdbcArchiveRepository;
+import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository;
+import me.zypj.revamp.leaderboard.repository.impl.SQLiteBoardRepository;
+import me.zypj.revamp.leaderboard.services.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,6 +45,8 @@ public class PluginBootstrap {
         configAdapter = new ConfigAdapter(plugin);
         messagesAdapter = new MessagesAdapter(plugin);
         boardsConfigAdapter = new BoardsConfigAdapter(plugin);
+
+        messagesAdapter.init();
     }
 
     private void setupDatabase() {

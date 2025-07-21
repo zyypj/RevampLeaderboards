@@ -1,6 +1,7 @@
 package me.zypj.revamp.leaderboard.repository;
 
 import me.zypj.revamp.leaderboard.model.BoardEntry;
+import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

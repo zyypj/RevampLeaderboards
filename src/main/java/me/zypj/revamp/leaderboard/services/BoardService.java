@@ -12,7 +12,7 @@ import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
-import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository.BoardBatchEntry;
+import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository.BoardBatchEntry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
