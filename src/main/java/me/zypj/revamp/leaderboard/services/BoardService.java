@@ -6,6 +6,9 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
+import me.zypj.revamp.leaderboard.api.events.BoardEntryAchievedEvent;
+import me.zypj.revamp.leaderboard.api.events.BoardResetEvent;
+import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
@@ -17,6 +20,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class BoardService {
 
@@ -73,9 +77,13 @@ public class BoardService {
     public void updateAll() {
         for (String raw : boardsAdapter.getBoards()) {
             EnumMap<PeriodType, String> m = tableMap.get(raw);
-            for (String table : m.values()) {
+            for (Map.Entry<PeriodType, String> e : m.entrySet()) {
+                PeriodType period = e.getKey();
+                String table = e.getValue();
+
                 ConcurrentMap<UUID, Double> map = lastValues
                         .computeIfAbsent(table, t -> new ConcurrentHashMap<>());
+
                 List<BoardBatchEntry> batch = new ArrayList<>();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     UUID id = p.getUniqueId();
@@ -85,7 +93,26 @@ public class BoardService {
                         batch.add(new BoardBatchEntry(id.toString(), p.getName(), nv));
                     }
                 }
-                boardRepository.batchSave(table, batch);
+
+                if (!batch.isEmpty()) {
+                    boardRepository.batchSave(table, batch);
+
+                    Map<UUID, Double> changedValues = batch.stream()
+                            .collect(Collectors.toMap(
+                                    be -> UUID.fromString(be.uuid),
+                                    be -> be.value
+                            ));
+                    Bukkit.getPluginManager().callEvent(
+                            new LeaderboardUpdateEvent(raw, period, changedValues)
+                    );
+
+                    for (BoardBatchEntry be : batch) {
+                        UUID id = UUID.fromString(be.uuid);
+                        Bukkit.getPluginManager().callEvent(
+                                new BoardEntryAchievedEvent(raw, period, id, be.value)
+                        );
+                    }
+                }
             }
         }
     }
@@ -119,6 +146,7 @@ public class BoardService {
     public void reset(PeriodType period) {
         tableMap.values().forEach(m -> boardRepository.truncate(m.get(period)));
         lastValues.clear();
+        Bukkit.getPluginManager().callEvent(new BoardResetEvent(period));
     }
 
     public void clearDatabase() {
@@ -143,9 +171,8 @@ public class BoardService {
         String san = sanitize(raw);
         sanitizedMap.put(raw, san);
         EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
-        for (PeriodType pt : PeriodType.values()) {
+        for (PeriodType pt : PeriodType.values())
             m.put(pt, san + "_" + pt.name().toLowerCase());
-        }
         tableMap.put(raw, m);
         boardRepository.initTables(new ArrayList<>(m.values()));
     }
