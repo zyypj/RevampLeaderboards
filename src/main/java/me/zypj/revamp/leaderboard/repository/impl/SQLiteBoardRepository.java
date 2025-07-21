@@ -122,6 +122,19 @@ public class SQLiteBoardRepository implements BoardRepository {
         return list;
     }
 
+    @Override
+    public int count(String table) {
+        String sql = "SELECT COUNT(*) FROM \"" + table + "\"";
+        try (Connection c = ds.getConnection();
+             Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery(sql)) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException ex) {
+            LOGGER.log(Level.SEVERE, "Error counting table " + table, ex);
+        }
+        return 0;
+    }
+
     private void executeUpdate(String sql) {
         try (Connection c = ds.getConnection();
              Statement s = c.createStatement()) {

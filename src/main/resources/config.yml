@@ -16,6 +16,10 @@ cache:
   # Time after which cache entries will be automatically refreshed, in seconds
   refresh-seconds: 30
 
+sharding:
+  enabled: true
+  max-entries-per-shard: 10000
+
 custom-placeholders:
   # Definition of custom placeholders by index
   # Index 0 → placeholders like %lb_tag_<position>_total_<board>%

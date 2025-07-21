@@ -12,5 +12,6 @@ public interface BoardRepository {
     void batchSave(String table, List<JdbcBoardRepository.BoardBatchEntry> batch);
     void truncate(String table);
     List<BoardEntry> loadTop(String table, int limit);
+    int count(String table);
     ExecutorService getExecutor();
 }

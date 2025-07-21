@@ -53,6 +53,14 @@ public class ConfigAdapter {
         return config.getString("database.mysql.password");
     }
 
+    public boolean isShardingEnabled() {
+        return config.getBoolean("sharding.enabled", false);
+    }
+
+    public int getShardMaxEntries() {
+        return config.getInt("sharding.max-entries-per-shard", 10000);
+    }
+
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {
         Map<String, CustomPlaceholder> map = new HashMap<>();
         ConfigurationSection section = config.getConfigurationSection("custom-placeholders");
