@@ -25,6 +25,7 @@ dependencies {
             'com.zaxxer:HikariCP:4.0.3',
             'com.github.ben-manes.caffeine:caffeine:2.9.3',
             'com.google.code.gson:gson:2.13.1',
+            'org.xerial:sqlite-jdbc:3.49.1.0'
     )
 }
 
