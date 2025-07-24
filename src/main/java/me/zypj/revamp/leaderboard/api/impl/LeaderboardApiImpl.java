@@ -4,6 +4,7 @@ import me.zypj.revamp.leaderboard.api.LeaderboardApi;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +32,7 @@ public class LeaderboardApiImpl implements LeaderboardApi {
     }
 
     @Override
-    public int getPosition(String boardKey, PeriodType period, UUID playerUuid) {
+    public int getPosition(String boardKey, PeriodType period, @NotNull UUID playerUuid) {
         List<BoardEntry> list = bootstrap.getBoardService().getLeaderboard(boardKey, period, 0);
         String uuid = playerUuid.toString();
         for (int i = 0; i < list.size(); i++) {

@@ -5,11 +5,13 @@ import me.zypj.revamp.leaderboard.model.CustomPlaceholder;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class CustomPlaceholderService {
 
@@ -19,7 +21,7 @@ public class CustomPlaceholderService {
     private final boolean isSqlite;
 
     private final ConcurrentMap<UUID, ConcurrentMap<String, String>> cache = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final BukkitTask refreshTask;
 
     public CustomPlaceholderService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
@@ -30,7 +32,7 @@ public class CustomPlaceholderService {
         initTable();
         loadAllFromDb();
 
-        scheduler.scheduleAtFixedRate(this::refreshAllOnline, 0, 10, TimeUnit.SECONDS);
+        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAllOnline, 0L, 20L * 10L);
     }
 
     private void initTable() {
@@ -67,6 +69,10 @@ public class CustomPlaceholderService {
     }
 
     public void updatePlayer(Player p) {
+        if (!Bukkit.isPrimaryThread()) {
+            Bukkit.getScheduler().runTask(plugin, () -> updatePlayer(p));
+            return;
+        }
         UUID id = p.getUniqueId();
         ConcurrentMap<String, String> mem = cache.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
         List<String> changed = new ArrayList<>();
@@ -119,7 +125,7 @@ public class CustomPlaceholderService {
     }
 
     public void shutdown() {
-        scheduler.shutdownNow();
+        if (refreshTask != null) refreshTask.cancel();
     }
 
     private void executeUpdate(String sql) {

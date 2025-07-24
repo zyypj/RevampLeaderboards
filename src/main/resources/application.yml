@@ -1,0 +1,9 @@
+# Enable or disable the embedded HTTP server module
+server:
+  enable: false    # When true, the web server will start alongside the plugin
+  name: "Leaderboard-Server"  # Thread name used for the HTTP server instance
+  port: 8080       # TCP port on which the server listens for incoming requests
+
+# Base path for all REST API endpoints
+app:
+  base-path: /api  # Prefix applied to every API route (e.g., /api/plugin, /api/boards)

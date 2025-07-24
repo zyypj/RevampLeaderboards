@@ -2,10 +2,12 @@ plugins {
     id 'java'
     id("io.freefair.lombok") version "8.14"
     id("com.github.johnrengelman.shadow") version "7.1.0"
+    id("org.springframework.boot") version "2.7.13"
+    id("io.spring.dependency-management") version "1.0.15.RELEASE"
 }
 
 group = 'me.zypj'
-version = '2.1'
+version = '2.2beta'
 
 repositories {
     mavenCentral()
@@ -25,6 +27,7 @@ dependencies {
             'com.zaxxer:HikariCP:4.0.3',
             'com.github.ben-manes.caffeine:caffeine:2.9.3',
             'com.google.code.gson:gson:2.13.1',
+            'org.springframework.boot:spring-boot-starter-web',
             'org.xerial:sqlite-jdbc:3.49.1.0'
     )
 }
