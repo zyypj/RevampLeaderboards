@@ -4,7 +4,7 @@
 [![Java 1.8+](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](#)  
 [![PlaceholderAPI](https://img.shields.io/badge/PlaceholderAPI-✔️-blue.svg)](#)
 
-A high‑performance Spigot/Paper plugin that generates **daily**, **weekly**, **monthly** and **total** leaderboards from any PlaceholderAPI placeholder — now with **SQLite** support and an optional embedded HTTP server for RESTful access.
+A high‑performance Spigot/Paper plugin that generates **daily**, **weekly**, **monthly** and **total** leaderboards from any PlaceholderAPI placeholder — with **SQLite** & **MySQL** support and an optional embedded HTTP server for RESTful access.
 
 ---
 
