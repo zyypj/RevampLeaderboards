@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'me.zypj'
-version = '2.2beta'
+version = '2.2'
 
 repositories {
     mavenCentral()
@@ -66,5 +66,6 @@ shadowJar {
     relocate 'org.bstats', 'me.zypj.revamp.lib.bstats'
     relocate 'org.checkerframework', 'me.zypj.revamp.lib.org.checkerframework'
     relocate 'org.slf4j', 'me.zypj.revamp.lib.org.slf4j'
+    relocate 'org.sqlite', 'me.zypj.revamp.lib.org.sqlite'
     relocate 'com.google.errorprone.annotations', 'me.zypj.revamp.lib.com.google.errorprone.annotations'
 }

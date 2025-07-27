@@ -149,10 +149,10 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
 
             List<BoardEntry> full = boardService.getLeaderboard(boardKey, period, 0);
             String uuid = player.getUniqueId().toString();
-            for (int i = 0; i < full.size(); i++) {
+            for (int i = 0; i < full.size(); i++)
                 if (full.get(i).getUuid().equals(uuid)) return String.valueOf(i + 1);
-            }
-            return plugin.getBootstrap().getMessagesAdapter().getMessage("not-load");
+
+            return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-not-load");
         }
 
         String[] parts = params.split("_", 4);
@@ -175,7 +175,7 @@ public class LeaderBoardPlaceholderExpansion extends PlaceholderExpansion {
             if (dataType.equalsIgnoreCase("amount")) return "0";
             if (plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders().containsKey(dataType)) return "";
 
-            return plugin.getBootstrap().getMessagesAdapter().getMessage("nobody");
+            return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-nobody");
         }
 
         BoardEntry entry = list.get(position - 1);

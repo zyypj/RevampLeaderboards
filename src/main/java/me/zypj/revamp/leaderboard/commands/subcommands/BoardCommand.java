@@ -66,13 +66,13 @@ public class BoardCommand implements ISubCommand {
 
             case "remove":
                 if (args.length < 2) {
-                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.add.usage")
+                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.remove.usage")
                             .replace("{usage}", "/lb board remove <placeholder>"));
                     return false;
                 }
                 String rawRem = args[1].replace("%", "").replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
                 plugin.getBootstrap().getBoardService().removeBoard(rawRem);
-                sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.add.board-del")
+                sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.remove.board-del")
                         .replace("{board}", rawRem));
                 break;
 

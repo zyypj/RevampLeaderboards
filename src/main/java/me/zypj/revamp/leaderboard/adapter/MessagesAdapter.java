@@ -18,12 +18,22 @@ public class MessagesAdapter {
         try {
             this.yaml = new YAML("messages.yml", plugin);
             yaml.saveDefaultConfig();
+            yaml.reload();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     public String getMessage(String path) {
-        return yaml.getString("messages." + path, true);
+        String fullPath = "messages." + path;
+        String msg = yaml.getString(fullPath, true);
+
+        if (msg == null) {
+            String warn = "Message not found for path: " + fullPath;
+            plugin.getLogger().warning(warn);
+            return warn;
+        }
+
+        return msg;
     }
 }

@@ -73,18 +73,18 @@ public class PluginBootstrap {
     }
 
     private void setupServices() {
+        shardManager = new ShardManager(plugin);
         boardService = new BoardService(plugin);
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
         historyService = new HistoryService(plugin);
-        shardManager = new ShardManager(plugin);
+
+        shardManager.init();
 
         boardService.init();
         boardService.updateAll();
 
         schedulerService.scheduleAll();
-
-        shardManager.init();
     }
 
     private void setupWeb() {
