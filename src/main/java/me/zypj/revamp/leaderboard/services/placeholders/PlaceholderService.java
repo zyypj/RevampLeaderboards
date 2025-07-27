@@ -26,217 +26,232 @@ public class PlaceholderService {
         String lower = params.toLowerCase(Locale.ROOT);
 
         if (lower.startsWith("remains_")) return handleRemains(params);
-
         if (lower.startsWith("position_")) return handlePosition(player, params);
+        if (lower.startsWith("amount_")) return handleAmount(params);
+        if (lower.startsWith("display_")) return handleDisplay(params);
 
-        return handleEntryData(player, params);
+        return handleCustom(player, params);
     }
 
     private String handleRemains(String params) {
         String[] parts = params.split("_", 3);
-        if (parts.length < 2) return "";
-
-        String periodKey = parts[1].toLowerCase(Locale.ROOT);
+        String periodKey = parts.length > 1 ? parts[1].toLowerCase(Locale.ROOT) : "";
         if (periodKey.equals("total")) return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-never");
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime nextReset;
+        LocalDateTime nextReset = computeNextReset(periodKey);
+
+        return formatDuration(Duration.between(now, nextReset));
+    }
+
+    private String handlePosition(OfflinePlayer viewer, String params) {
+        String[] parts = params.split("_", 3);
+        if (parts.length != 3 || viewer == null) return "";
+
+        PeriodType period = parsePeriod(parts[1]);
+        String boardKey = parts[2];
+
+        List<BoardEntry> list = plugin.getBootstrap()
+                .getBoardService()
+                .getLeaderboard(boardKey, period, 0);
+
+        String uuid = viewer.getUniqueId().toString();
+        for (int i = 0; i < list.size(); i++)
+            if (list.get(i).getKey().equals(uuid))
+                return Integer.toString(i + 1);
+
+        return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-not-load");
+    }
+
+    private String handleAmount(String params) {
+        String[] parts = params.split("_", 4);
+        if (parts.length < 4) return "0";
+
+        PeriodType period = parsePeriod(parts[1]);
+        String boardKey = parts[2];
+        String targetKey = parts[3];
+
+        List<BoardEntry> list = plugin.getBootstrap()
+                .getBoardService()
+                .getLeaderboard(boardKey, period, 0);
+
+        for (BoardEntry e : list)
+            if (e.getKey().equals(targetKey))
+                return formatAmount(e.getValue());
+
+        return "0";
+    }
+
+    private String handleDisplay(String p) {
+        String[] parts = p.split("_", 4);
+        if (parts.length < 4) return "";
+
+        PeriodType period = parsePeriod(parts[1]);
+        int pos;
         try {
-            nextReset = computeNextReset(periodKey);
+            pos = Integer.parseInt(parts[2]);
         } catch (Exception e) {
             return "";
         }
+        String board = parts[3];
 
-        Duration duration = Duration.between(now, nextReset);
-        return formatDuration(duration);
+        List<BoardEntry> list = plugin.getBootstrap()
+                .getBoardService()
+                .getLeaderboard(board, period, 0);
+
+        if (pos < 1 || pos > list.size())
+            return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-nobody");
+
+        return list.get(pos - 1).getDisplay();
+    }
+
+    private String handleCustom(OfflinePlayer viewer, String params) {
+        String[] tokens = params.split("_");
+        if (tokens.length < 3) return "";
+
+        String dataType = tokens[0].toLowerCase(Locale.ROOT);
+        PeriodType period = parsePeriod(tokens[1]);
+
+        Map<String, CustomPlaceholder> customMap =
+                plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
+        CustomPlaceholder cp = customMap.get(dataType);
+        if (cp == null) return "";
+
+        Integer position = null;
+        String boardKey;
+
+        if (tokens.length >= 4 && tokens[2].matches("\\d+")) {
+            position = Integer.parseInt(tokens[2]);
+            boardKey = String.join("_", Arrays.copyOfRange(tokens, 3, tokens.length));
+        } else {
+            boardKey = String.join("_", Arrays.copyOfRange(tokens, 2, tokens.length));
+        }
+
+        if (position == null) {
+            String live = PlaceholderAPI.setPlaceholders(viewer, cp.getPlaceholder());
+            if (!live.isEmpty() && !live.startsWith("%")) return live;
+
+            return plugin.getBootstrap()
+                    .getCustomPlaceholderService()
+                    .getValue(viewer.getUniqueId(), dataType);
+        }
+
+        List<BoardEntry> list = plugin.getBootstrap()
+                .getBoardService()
+                .getLeaderboard(boardKey, period, 0);
+        if (position < 1 || position > list.size()) return "";
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(
+                UUID.fromString(list.get(position - 1).getKey())
+        );
+        String live = PlaceholderAPI.setPlaceholders(target, cp.getPlaceholder());
+        if (!live.isEmpty() && !live.startsWith("%")) return live;
+
+        return plugin.getBootstrap()
+                .getCustomPlaceholderService()
+                .getValue(target.getUniqueId(), dataType);
+    }
+
+    private PeriodType parsePeriod(String key) {
+        try {
+            return PeriodType.valueOf(key.toUpperCase(Locale.ROOT));
+        } catch (Exception ex) {
+            return PeriodType.TOTAL;
+        }
+    }
+
+    private String formatAmount(double value) {
+        BigDecimal bd = BigDecimal.valueOf(value).stripTrailingZeros();
+        String s = bd.toPlainString();
+        return s.contains(".") ? s.replace('.', ',') : s;
     }
 
     private LocalDateTime computeNextReset(String periodKey) {
         FileConfiguration cfg = plugin.getConfig();
         LocalDateTime now = LocalDateTime.now();
-
         switch (periodKey) {
             case "daily":
-                LocalTime dailyTime = parseTime(cfg.getString("scheduler.reset.daily.time", "00:00"));
-                LocalDateTime nextDaily = now.with(dailyTime);
+                LocalTime daily = parseTime(cfg.getString("scheduler.reset.daily.time", "00:00"));
+                LocalDateTime nextDaily = now.with(daily);
                 if (!nextDaily.isAfter(now)) nextDaily = nextDaily.plusDays(1);
 
                 return nextDaily;
-
             case "weekly":
                 DayOfWeek dow = DayOfWeek.valueOf(
-                        cfg.getString("scheduler.reset.weekly.day", "SUNDAY").toUpperCase(Locale.ROOT)
-                );
-                LocalTime weeklyTime = parseTime(cfg.getString("scheduler.reset.weekly.time", "00:00"));
-                LocalDate nextDate = LocalDate.now().with(TemporalAdjusters.nextOrSame(dow));
-                LocalDateTime nextWeekly = LocalDateTime.of(nextDate, weeklyTime);
+                        cfg.getString("scheduler.reset.weekly.day", "SUNDAY").toUpperCase());
+                LocalTime weekly = parseTime(cfg.getString("scheduler.reset.weekly.time", "00:00"));
+                LocalDate d = LocalDate.now().with(TemporalAdjusters.nextOrSame(dow));
+                LocalDateTime nextWeekly = LocalDateTime.of(d, weekly);
+
                 if (!nextWeekly.isAfter(now)) nextWeekly = nextWeekly.plusWeeks(1);
 
                 return nextWeekly;
-
             case "monthly":
-                int dayOfMonth = Integer.parseInt(cfg.getString("scheduler.reset.monthly.day", "1"));
-                LocalTime monthlyTime = parseTime(cfg.getString("scheduler.reset.monthly.time", "00:00"));
+                int dom = Integer.parseInt(cfg.getString("scheduler.reset.monthly.day", "1"));
+                LocalTime monthly = parseTime(cfg.getString("scheduler.reset.monthly.time", "00:00"));
                 LocalDate today = LocalDate.now();
-                int validDay = Math.min(dayOfMonth, today.lengthOfMonth());
-                LocalDateTime nextMonthly = LocalDateTime.of(today.withDayOfMonth(validDay), monthlyTime);
+                int valid = Math.min(dom, today.lengthOfMonth());
+                LocalDateTime nextMonthly = LocalDateTime.of(today.withDayOfMonth(valid), monthly);
+
                 if (!nextMonthly.isAfter(now)) {
-                    LocalDate plusMonth = today.plusMonths(1);
-                    int lastDay = plusMonth.lengthOfMonth();
-                    int adjDay = Math.min(dayOfMonth, lastDay);
-                    nextMonthly = LocalDateTime.of(plusMonth.withDayOfMonth(adjDay), monthlyTime);
+                    LocalDate m = today.plusMonths(1);
+                    int dmax = m.lengthOfMonth();
+                    nextMonthly = LocalDateTime.of(m.withDayOfMonth(Math.min(dom, dmax)), monthly);
                 }
 
                 return nextMonthly;
-
             default:
-                throw new IllegalArgumentException("Unknown period: " + periodKey);
+                return now;
         }
     }
 
-    private LocalTime parseTime(String timeStr) {
+    private LocalTime parseTime(String s) {
         try {
-            return LocalTime.parse(timeStr);
+            return LocalTime.parse(s);
         } catch (DateTimeParseException ex) {
             return LocalTime.MIDNIGHT;
         }
     }
 
     private String formatDuration(Duration dur) {
-        long seconds = Math.max(0, dur.getSeconds());
-        long days = seconds / 86_400;
-        long hours = (seconds % 86_400) / 3_600;
-        long minutes = (seconds % 3_600) / 60;
-        long secs = seconds % 60;
+        long secs = Math.max(0, dur.getSeconds());
+        long days = secs / 86_400;
+        long hrs = (secs % 86_400) / 3_600;
+        long mins = (secs % 3_600) / 60;
+        long ss = secs % 60;
 
         if (days > 0) {
             String tpl = plugin.getBootstrap().getMessagesAdapter().getMessage("when-days-missing");
-            String unit = days == 1
+            String u = days == 1
                     ? plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-day")
                     : plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-days");
-
             return tpl.replace("{dd}", Long.toString(days))
-                    .replace("{day-meaning}", unit);
+                    .replace("{day-meaning}", u);
         }
-        if (hours > 0) {
+        if (hrs > 0) {
             String tpl = plugin.getBootstrap().getMessagesAdapter().getMessage("when-hours-missing");
-            String unit = hours == 1
+            String u = hrs == 1
                     ? plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-hour")
                     : plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-hours");
-
-            return tpl.replace("{hh}", String.format("%02d", hours))
-                    .replace("{mm}", String.format("%02d", minutes))
-                    .replace("{hour-meaning}", unit);
+            return tpl.replace("{hh}", String.format("%02d", hrs))
+                    .replace("{mm}", String.format("%02d", mins))
+                    .replace("{hour-meaning}", u);
         }
-        if (minutes > 0) {
+        if (mins > 0) {
             String tpl = plugin.getBootstrap().getMessagesAdapter().getMessage("when-minutes-missing");
-            String unit = minutes == 1
+            String u = mins == 1
                     ? plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-minute")
                     : plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-minutes");
-
-            return tpl.replace("{mm}", String.format("%02d", minutes))
-                    .replace("{ss}", String.format("%02d", secs))
-                    .replace("{minute-meaning}", unit);
+            return tpl.replace("{mm}", String.format("%02d", mins))
+                    .replace("{ss}", String.format("%02d", ss))
+                    .replace("{minute-meaning}", u);
         }
-
         String tpl = plugin.getBootstrap().getMessagesAdapter().getMessage("when-seconds-missing");
-        String unit = secs == 1
+        String u = ss == 1
                 ? plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-second")
                 : plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-seconds");
-
-        return tpl.replace("{mm}", String.format("%02d", minutes))
-                .replace("{ss}", String.format("%02d", secs))
-                .replace("{second-meaning}", unit);
-    }
-
-    private String handlePosition(OfflinePlayer player, String params) {
-        String[] parts = params.split("_", 3);
-        if (parts.length < 3) {
-            return "";
-        }
-        PeriodType period = parsePeriod(parts[1]);
-        String boardKey = parts[2];
-        List<BoardEntry> entries = plugin.getBootstrap().getBoardService().getLeaderboard(boardKey, period, 0);
-        String targetUuid = player.getUniqueId().toString();
-
-        for (int i = 0; i < entries.size(); i++)
-            if (entries.get(i).getUuid().equals(targetUuid))
-                return Integer.toString(i + 1);
-
-        return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-not-load");
-    }
-
-    private PeriodType parsePeriod(String key) {
-        switch (key.toLowerCase(Locale.ROOT)) {
-            case "daily":
-                return PeriodType.DAILY;
-            case "weekly":
-                return PeriodType.WEEKLY;
-            case "monthly":
-                return PeriodType.MONTHLY;
-            default:
-                return PeriodType.TOTAL;
-        }
-    }
-
-    private String handleEntryData(OfflinePlayer player, String params) {
-        String[] parts = params.split("_", 4);
-        if (parts.length < 4) return "";
-
-        String dataType = parts[0].toLowerCase(Locale.ROOT);
-        PeriodType period = parsePeriod(parts[1]);
-
-        int position;
-        try {
-            position = Integer.parseInt(parts[2]);
-        } catch (NumberFormatException ex) {
-            return "";
-        }
-        String boardKey = parts[3];
-
-        List<BoardEntry> list = plugin.getBootstrap().getBoardService().getLeaderboard(boardKey, period, position);
-        if (position < 1 || list.size() < position) {
-            if (dataType.equalsIgnoreCase("amount")) return "0";
-
-            if (plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders().containsKey(dataType)) return "";
-
-            return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-nobody");
-        }
-
-        BoardEntry entry = list.get(position - 1);
-        switch (dataType) {
-            case "playername":
-                return entry.getPlayerName();
-            case "uuid":
-                return entry.getUuid();
-            case "amount":
-                return formatAmount(entry.getValue());
-            default:
-                return handleCustomPlaceholder(entry, dataType);
-        }
-    }
-
-    private String formatAmount(double value) {
-        BigDecimal bd = BigDecimal.valueOf(value).stripTrailingZeros();
-        String str = bd.toPlainString();
-        return str.contains(".")
-                ? str.replace('.', ',')
-                : str;
-    }
-
-    private String handleCustomPlaceholder(BoardEntry entry, String dataType) {
-        Map<String, CustomPlaceholder> customMap = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
-        if (!customMap.containsKey(dataType)) return "";
-
-        CustomPlaceholder cp = customMap.get(dataType);
-        OfflinePlayer off = Bukkit.getOfflinePlayer(UUID.fromString(entry.getUuid()));
-
-        String expr = cp.getPlaceholder()
-                .replace("{player}", off.getName());
-        String live = PlaceholderAPI.setPlaceholders(off, expr);
-        if (!live.isEmpty() && !live.startsWith("%")) return live;
-
-        String cached = plugin.getBootstrap().getCustomPlaceholderService().getValue(off.getUniqueId(), dataType);
-        return cached != null ? cached : "";
+        return tpl.replace("{mm}", String.format("%02d", mins))
+                .replace("{ss}", String.format("%02d", ss))
+                .replace("{second-meaning}", u);
     }
 }

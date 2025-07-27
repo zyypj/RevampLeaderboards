@@ -70,8 +70,9 @@ public class HistoryController extends AbstractApiController {
 
         return plugin.getBootstrap()
                 .getArchiveRepository()
-                .getPlayerHistory(uuid, key, pt, f, t)
+                .getHistory(key, pt, f, t)
                 .stream()
+                .filter(e -> e.getEntryKey().equals(uuid.toString()))
                 .map(PlayerHistoryDto::new)
                 .collect(Collectors.toList());
     }
@@ -89,13 +90,13 @@ public class HistoryController extends AbstractApiController {
 
     @Getter
     public static class HistoricalEntryDto {
-        private final UUID uuid;
-        private final String playerName;
+        private final String entryKey;
+        private final String entryDisplay;
         private final double value;
 
         public HistoricalEntryDto(HistoricalEntry e) {
-            this.uuid = e.getPlayerUuid();
-            this.playerName = e.getPlayerName();
+            this.entryKey = e.getEntryKey();
+            this.entryDisplay = e.getEntryDisplay();
             this.value = e.getValue();
         }
     }

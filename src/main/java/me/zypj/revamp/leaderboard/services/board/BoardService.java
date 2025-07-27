@@ -5,112 +5,141 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import me.clip.placeholderapi.PlaceholderAPI;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
-import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
-import me.zypj.revamp.leaderboard.api.events.BoardEntryAchievedEvent;
-import me.zypj.revamp.leaderboard.api.events.BoardResetEvent;
-import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
+import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter.BoardConfig;
+import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter.BoardType;
+import me.zypj.revamp.leaderboard.board.AbstractBoard;
+import me.zypj.revamp.leaderboard.board.GenericBoardEntry;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
-import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository.BoardBatchEntry;
-
+import me.zypj.revamp.leaderboard.repository.BoardRepository.BoardBatchEntry;
 import me.zypj.revamp.leaderboard.services.database.ShardManager;
+import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
+import me.zypj.revamp.leaderboard.api.events.BoardEntryAchievedEvent;
+import me.zypj.revamp.leaderboard.api.events.BoardResetEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class BoardService {
 
     private final LeaderboardPlugin plugin;
-    private final BoardsConfigAdapter boardsAdapter;
     private final BoardRepository boardRepository;
     private final ShardManager shardManager;
 
+    private final List<AbstractBoard<?>> boards;
+
     private final LoadingCache<CacheKey, List<BoardEntry>> cache;
+    private final ConcurrentMap<String, ConcurrentMap<Object, Double>> lastValues = new ConcurrentHashMap<>();
 
-    private final Map<String, String> sanitizedMap = new HashMap<>();
-    private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
-
-    private final ConcurrentMap<String, ConcurrentMap<UUID, Double>> lastValues = new ConcurrentHashMap<>();
-
-    public BoardService(LeaderboardPlugin plugin) {
+    public BoardService(LeaderboardPlugin plugin, List<AbstractBoard<?>> boards) {
         this.plugin = plugin;
-        this.boardsAdapter = plugin.getBootstrap().getBoardsConfigAdapter();
-        ConfigAdapter cfg = plugin.getBootstrap().getConfigAdapter();
-        boardRepository = plugin.getBootstrap().getBoardRepository();
+        this.boards = boards;
+        this.boardRepository = plugin.getBootstrap().getBoardRepository();
         this.shardManager = plugin.getBootstrap().getShardManager();
-
-        for (String raw : boardsAdapter.getBoards()) {
-            String san = sanitize(raw);
-            sanitizedMap.put(raw, san);
-            EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
-            for (PeriodType pt : PeriodType.values()) {
-                m.put(pt, san + "_" + pt.name().toLowerCase());
-            }
-            tableMap.put(raw, m);
-        }
-
         this.cache = Caffeine.newBuilder()
-                .expireAfterWrite(cfg.getCacheTtlSeconds(), TimeUnit.SECONDS)
-                .refreshAfterWrite(cfg.getCacheRefreshSeconds(), TimeUnit.SECONDS)
+                .expireAfterWrite(plugin.getBootstrap().getConfigAdapter().getCacheTtlSeconds(), TimeUnit.SECONDS)
+                .refreshAfterWrite(plugin.getBootstrap().getConfigAdapter().getCacheRefreshSeconds(), TimeUnit.SECONDS)
                 .build(this::loadSharded);
     }
 
     public void init() {
         List<String> all = new ArrayList<>();
-        tableMap.values().forEach(m -> all.addAll(m.values()));
+        for (AbstractBoard<?> board : boards) {
+            String san = sanitize(board.getBoardKey());
+            for (PeriodType pt : PeriodType.values()) {
+                all.add(san + "_" + pt.name().toLowerCase());
+            }
+        }
         boardRepository.initTables(all);
         shardManager.init();
     }
 
-    public void saveOnJoin(OfflinePlayer off) {
-        for (String raw : boardsAdapter.getBoards()) {
-            for (Map.Entry<PeriodType, String> e : tableMap.get(raw).entrySet()) {
-                double v = parsePlaceholder(off, raw);
-                String target = shardManager.getShardForWrite(raw, e.getKey());
-                boardRepository.save(target, off.getUniqueId().toString(), off.getName(), v);
+    public void saveOnJoin(OfflinePlayer player) {
+        BoardsConfigAdapter adapter = plugin.getBootstrap().getBoardsConfigAdapter();
+        for (AbstractBoard<?> board : boards) {
+            String raw = board.getBoardKey();
+            String san = sanitize(raw);
+            BoardConfig bc = adapter.getBoardConfig(raw);
+
+            for (PeriodType pt : PeriodType.values()) {
+                String table = shardManager.getShardForWrite(san, pt);
+
+                if (bc.getType() == BoardType.PLAYER) {
+                    String ph = bc.getPlaceholder();
+                    String rawVal = PlaceholderAPI.setPlaceholders(player, ph);
+                    double val = parseDouble(rawVal);
+                    boardRepository.save(table,
+                            player.getUniqueId().toString(),
+                            player.getName(),
+                            val);
+                } else {
+                    String key = PlaceholderAPI.setPlaceholders(player, bc.getKeyPlaceholder());
+                    if (key.isEmpty()) continue;
+                    String rawVal = PlaceholderAPI.setPlaceholders(player, bc.getValuePlaceholder());
+                    double val = parseDouble(rawVal);
+
+                    boardRepository.save(table, key, key, val);
+                }
             }
         }
     }
 
     public void updateAll() {
-        for (String raw : boardsAdapter.getBoards()) {
-            for (PeriodType period : PeriodType.values()) {
-                ConcurrentMap<UUID, Double> map = lastValues
-                        .computeIfAbsent(raw + "_" + period, k -> new ConcurrentHashMap<>());
+        BoardsConfigAdapter adapter = plugin.getBootstrap().getBoardsConfigAdapter();
 
+        for (AbstractBoard<?> board : boards) {
+            String raw = board.getBoardKey();
+            String san = sanitize(raw);
+            BoardConfig bc = adapter.getBoardConfig(raw);
+
+            for (PeriodType pt : PeriodType.values()) {
+                String mapKey = san + "_" + pt.name().toLowerCase();
+                ConcurrentMap<Object, Double> map = lastValues
+                        .computeIfAbsent(mapKey, k -> new ConcurrentHashMap<>());
+
+                List<? extends GenericBoardEntry<?>> entries = board.getTop(0);
                 List<BoardBatchEntry> batch = new ArrayList<>();
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    UUID id = p.getUniqueId();
-                    double nv = parsePlaceholder(p, raw);
-                    if (nv != map.getOrDefault(id, -1d)) {
-                        map.put(id, nv);
-                        batch.add(new BoardBatchEntry(id.toString(), p.getName(), nv));
+
+                for (GenericBoardEntry<?> e : entries) {
+                    String keyStr = e.getKey().toString();
+                    double nv = e.getValue();
+                    String display;
+                    if (bc.getType() == BoardType.PLAYER) {
+                        display = Bukkit.getOfflinePlayer(UUID.fromString(keyStr)).getName();
+                    } else {
+                        display = keyStr;
+                    }
+
+                    if (nv != map.getOrDefault(e.getKey(), -1d)) {
+                        map.put(e.getKey(), nv);
+                        batch.add(new BoardBatchEntry(keyStr, display, nv));
                     }
                 }
 
                 if (!batch.isEmpty()) {
-                    String target = shardManager.getShardForWrite(raw, period);
+                    String target = shardManager.getShardForWrite(san, pt);
                     boardRepository.batchSave(target, batch);
 
-                    Map<UUID, Double> changedValues = batch.stream()
-                            .collect(Collectors.toMap(
-                                    be -> UUID.fromString(be.uuid),
-                                    be -> be.value
-                            ));
-                    Bukkit.getPluginManager().callEvent(
-                            new LeaderboardUpdateEvent(raw, period, changedValues)
-                    );
-
-                    for (BoardBatchEntry be : batch) {
-                        UUID id = UUID.fromString(be.uuid);
-                        Bukkit.getPluginManager().callEvent(
-                                new BoardEntryAchievedEvent(raw, period, id, be.value)
+                    if (bc.getType() == BoardType.PLAYER) {
+                        Map<UUID, Double> changed = batch.stream().collect(
+                                Collectors.toMap(
+                                        be -> UUID.fromString(be.key),
+                                        be -> be.value
+                                )
                         );
+                        Bukkit.getPluginManager()
+                                .callEvent(new LeaderboardUpdateEvent(raw, pt, changed));
+                        for (BoardBatchEntry be : batch) {
+                            Bukkit.getPluginManager()
+                                    .callEvent(new BoardEntryAchievedEvent(raw, pt,
+                                            UUID.fromString(be.key), be.value));
+                        }
                     }
                 }
             }
@@ -122,13 +151,10 @@ public class BoardService {
     }
 
     public List<BoardEntry> getLeaderboard(String raw, PeriodType period, int limit) {
-        if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
-
         CacheKey key = new CacheKey(raw, period, limit);
         try {
-            List<BoardEntry> originals = cache.get(key);
-            assert originals != null;
-            return originals;
+            List<BoardEntry> list = cache.get(key);
+            return list != null ? list : Collections.emptyList();
         } catch (Exception ex) {
             plugin.getLogger().severe("Failed to load leaderboard: " + ex.getMessage());
             return Collections.emptyList();
@@ -140,8 +166,9 @@ public class BoardService {
     }
 
     public void reset(PeriodType period) {
-        for (String raw : boardsAdapter.getBoards()) {
-            for (String shard : shardManager.getShards(raw, period)) {
+        for (AbstractBoard<?> board : boards) {
+            String san = sanitize(board.getBoardKey());
+            for (String shard : shardManager.getShards(san, period)) {
                 boardRepository.truncate(shard);
             }
         }
@@ -150,9 +177,10 @@ public class BoardService {
     }
 
     public void clearDatabase() {
-        for (String raw : boardsAdapter.getBoards()) {
+        for (AbstractBoard<?> board : boards) {
+            String san = sanitize(board.getBoardKey());
             for (PeriodType pt : PeriodType.values()) {
-                for (String shard : shardManager.getShards(raw, pt)) {
+                for (String shard : shardManager.getShards(san, pt)) {
                     boardRepository.truncate(shard);
                 }
             }
@@ -161,66 +189,41 @@ public class BoardService {
     }
 
     public void clearBoard(String raw) {
-        if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
-
+        String san = sanitize(raw);
         for (PeriodType pt : PeriodType.values()) {
-            for (String shard : shardManager.getShards(raw, pt)) {
+            for (String shard : shardManager.getShards(san, pt)) {
                 boardRepository.truncate(shard);
             }
-            lastValues.remove(raw + "_" + pt);
+            lastValues.remove(san + "_" + pt.name().toLowerCase());
         }
-
         invalidateCache();
     }
 
-    public void addBoard(String raw) {
-        boardsAdapter.addBoard(raw);
-        String san = sanitize(raw);
-        sanitizedMap.put(raw, san);
-        EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
-        for (PeriodType pt : PeriodType.values())
-            m.put(pt, san + "_" + pt.name().toLowerCase());
-        tableMap.put(raw, m);
-        boardRepository.initTables(new ArrayList<>(m.values()));
-        shardManager.init();
-    }
-
-    public void removeBoard(String raw) {
-        boardsAdapter.removeBoard(raw);
-        sanitizedMap.remove(raw);
-        tableMap.remove(raw);
-        shardManager.init();
-    }
-
-    public List<String> getBoards() {
-        return Collections.unmodifiableList(boardsAdapter.getBoards());
-    }
-
     private List<BoardEntry> loadSharded(CacheKey key) {
+        String san = sanitize(key.raw);
         List<BoardEntry> combined = new ArrayList<>();
-        for (String tbl : shardManager.getShards(key.raw, key.period)) {
-            combined.addAll(boardRepository.loadTop(tbl, key.limit > 0 ? key.limit : 0));
+        for (String tbl : shardManager.getShards(san, key.period)) {
+            combined.addAll(boardRepository.loadTop(tbl, Math.max(key.limit, 0)));
         }
         combined.sort(Comparator
                 .comparingDouble(BoardEntry::getValue).reversed()
-                .thenComparing(BoardEntry::getPlayerName));
+                .thenComparing(BoardEntry::getDisplay));
         if (key.limit > 0 && combined.size() > key.limit) {
             return combined.subList(0, key.limit);
         }
         return combined;
     }
 
-    private double parsePlaceholder(OfflinePlayer off, String raw) {
-        try {
-            String s = PlaceholderAPI.setPlaceholders(off, "%" + raw + "%");
-            return Double.parseDouble(s);
-        } catch (Exception ex) {
-            return 0d;
-        }
-    }
-
     private String sanitize(String in) {
         return in.replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+    }
+
+    private double parseDouble(String s) {
+        try {
+            return Double.parseDouble(s);
+        } catch (Exception e) {
+            return 0d;
+        }
     }
 
     private static class CacheKey {

@@ -2,6 +2,7 @@ package me.zypj.revamp.leaderboard.services.board.history;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import lombok.var;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
@@ -93,19 +94,17 @@ public class HistoryService {
 
     private void snapshotAll(PeriodType period) {
         LocalDateTime now = LocalDateTime.now();
+        var adapter = plugin.getBootstrap().getBoardsConfigAdapter();
 
-        for (String key : plugin.getBootstrap().getBoardsConfigAdapter().getBoards()) {
+        for (String key : adapter.getBoardKeys()) {
             List<BoardEntry> entries = boardService.getLeaderboard(key, period, 0);
             archiveRepository.saveSnapshot(key, period, now, entries);
         }
 
-        Map<String, List<BoardEntry>> allSnapshots = plugin.getBootstrap()
-                .getBoardsConfigAdapter()
-                .getBoards()
-                .stream()
+        Map<String, List<BoardEntry>> allSnapshots = adapter.getBoardKeys().stream()
                 .collect(Collectors.toMap(
-                        key -> key,
-                        key -> boardService.getLeaderboard(key, period, 0)
+                        k -> k,
+                        k -> boardService.getLeaderboard(k, period, 0)
                 ));
 
         saveToJsonFile(period, now.toLocalDate(), allSnapshots);
@@ -131,15 +130,19 @@ public class HistoryService {
     private long computeDelay(LocalTime t) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime next = now.with(t);
+
         if (!next.isAfter(now)) next = next.plusDays(1);
+
         return Duration.between(now, next).getSeconds();
     }
 
     private long computeDelay(DayOfWeek dow, LocalTime t) {
         LocalDate today = LocalDate.now();
-        LocalDate targetDate = today.with(TemporalAdjusters.nextOrSame(dow));
-        LocalDateTime next = LocalDateTime.of(targetDate, t);
+        LocalDate target = today.with(TemporalAdjusters.nextOrSame(dow));
+        LocalDateTime next = LocalDateTime.of(target, t);
+
         if (!next.isAfter(LocalDateTime.now())) next = next.plusWeeks(1);
+
         return Duration.between(LocalDateTime.now(), next).getSeconds();
     }
 }

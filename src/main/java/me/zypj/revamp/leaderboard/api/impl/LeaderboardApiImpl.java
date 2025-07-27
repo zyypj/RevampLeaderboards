@@ -8,10 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class LeaderboardApiImpl implements LeaderboardApi {
 
@@ -24,7 +22,7 @@ public class LeaderboardApiImpl implements LeaderboardApi {
     @Override
     public List<String> getBoardKeys() {
         return Collections.unmodifiableList(
-                bootstrap.getBoardsConfigAdapter().getBoards()
+                new ArrayList<>(bootstrap.getBoardsConfigAdapter().getBoardKeys())
         );
     }
 
@@ -35,10 +33,10 @@ public class LeaderboardApiImpl implements LeaderboardApi {
 
     @Override
     public int getPosition(String boardKey, PeriodType period, @NotNull UUID playerUuid) {
+        String key = playerUuid.toString();
         List<BoardEntry> list = bootstrap.getBoardService().getLeaderboard(boardKey, period, 0);
-        String uuid = playerUuid.toString();
         for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getUuid().equals(uuid)) {
+            if (list.get(i).getKey().equals(key)) {
                 return i + 1;
             }
         }
@@ -47,12 +45,12 @@ public class LeaderboardApiImpl implements LeaderboardApi {
 
     @Override
     public void addBoard(String boardKey) {
-        bootstrap.getBoardService().addBoard(boardKey);
+        bootstrap.getBoardsConfigAdapter().addStringBoard(boardKey, "", "");
     }
 
     @Override
     public void removeBoard(String boardKey) {
-        bootstrap.getBoardService().removeBoard(boardKey);
+        bootstrap.getBoardsConfigAdapter().removeBoard(boardKey);
     }
 
     @Override
@@ -77,8 +75,9 @@ public class LeaderboardApiImpl implements LeaderboardApi {
 
     @Override
     public void refreshCustomPlaceholders() {
-        for (Player p : Bukkit.getOnlinePlayers())
+        for (Player p : Bukkit.getOnlinePlayers()) {
             bootstrap.getCustomPlaceholderService().updatePlayer(p);
+        }
     }
 
     @Override

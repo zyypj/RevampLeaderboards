@@ -8,6 +8,7 @@ import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.api.web.controller.AbstractApiController;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,7 +35,7 @@ public class BoardController extends AbstractApiController {
         int totalItems = allEntries.size();
         if (size <= 0) {
             var items = allEntries.stream()
-                    .map(e -> new BoardEntryDto(e.getUuid(), e.getPlayerName(), e.getValue()))
+                    .map(e -> new BoardEntryDto(e.getKey(), e.getDisplay(), e.getValue()))
                     .collect(Collectors.toList());
             return new PaginatedBoardResponse(totalItems, 1, 0, totalItems, items);
         }
@@ -45,7 +46,7 @@ public class BoardController extends AbstractApiController {
         int to = Math.min(from + size, totalItems);
 
         List<BoardEntryDto> pageItems = allEntries.subList(from, to).stream()
-                .map(e -> new BoardEntryDto(e.getUuid(), e.getPlayerName(), e.getValue()))
+                .map(e -> new BoardEntryDto(e.getKey(), e.getDisplay(), e.getValue()))
                 .collect(Collectors.toList());
 
         return new PaginatedBoardResponse(totalItems, totalPages, currentPage, size, pageItems);
@@ -53,9 +54,9 @@ public class BoardController extends AbstractApiController {
 
     @GetMapping
     public List<String> listBoards() {
-        return plugin.getBootstrap()
+        return new ArrayList<>(plugin.getBootstrap()
                 .getBoardsConfigAdapter()
-                .getBoards();
+                .getBoardKeys());
     }
 
     @Getter
@@ -77,13 +78,13 @@ public class BoardController extends AbstractApiController {
 
     @Getter
     public static class BoardEntryDto {
-        private final String uuid;
-        private final String playerName;
+        private final String key;
+        private final String display;
         private final double value;
 
-        public BoardEntryDto(String uuid, String playerName, double value) {
-            this.uuid = uuid;
-            this.playerName = playerName;
+        public BoardEntryDto(String key, String display, double value) {
+            this.key = key;
+            this.display = display;
             this.value = value;
         }
     }

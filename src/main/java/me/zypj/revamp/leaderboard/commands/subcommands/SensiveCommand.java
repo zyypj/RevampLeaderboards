@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RequiredArgsConstructor
 public class SensiveCommand implements ISubCommand {
@@ -68,13 +69,12 @@ public class SensiveCommand implements ISubCommand {
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            return Collections.singletonList("resetDatabase").stream()
+            return Stream.of("resetDatabase")
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
         if (args.length == 2 && "resetDatabase".equalsIgnoreCase(args[0])) {
-            return plugin.getBootstrap().getBoardService()
-                    .getBoards().stream()
+            return plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys().stream()
                     .filter(b -> b.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
         }

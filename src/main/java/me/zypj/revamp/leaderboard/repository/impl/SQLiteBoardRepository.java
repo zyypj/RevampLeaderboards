@@ -34,8 +34,8 @@ public class SQLiteBoardRepository implements BoardRepository {
     @Override
     public void initTables(List<String> rawBoards) {
         String ddlTemplate = "CREATE TABLE IF NOT EXISTS \"%s\" (" +
-                "player_uuid TEXT PRIMARY KEY," +
-                "player_name TEXT NOT NULL," +
+                "entry_key TEXT PRIMARY KEY," +
+                "entry_display TEXT NOT NULL," +
                 "value REAL NOT NULL" +
                 ")";
         for (String table : rawBoards) {
@@ -45,13 +45,13 @@ public class SQLiteBoardRepository implements BoardRepository {
     }
 
     @Override
-    public void save(String table, String uuid, String name, double value) {
-        String sql = "INSERT OR REPLACE INTO \"" + table + "\"(player_uuid, player_name, value) VALUES(?, ?, ?)";
+    public void save(String table, String entryKey, String entryDisplay, double value) {
+        String sql = "INSERT OR REPLACE INTO \"" + table + "\"(entry_key, entry_display, value) VALUES(?, ?, ?)";
         executor.submit(() -> {
             try (Connection c = ds.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, uuid);
-                ps.setString(2, name);
+                ps.setString(1, entryKey);
+                ps.setString(2, entryDisplay);
                 ps.setDouble(3, value);
                 ps.executeUpdate();
             } catch (SQLException ex) {
@@ -61,12 +61,12 @@ public class SQLiteBoardRepository implements BoardRepository {
     }
 
     @Override
-    public void batchSave(String table, List<JdbcBoardRepository.BoardBatchEntry> batch) {
+    public void batchSave(String table, List<BoardBatchEntry> batch) {
         if (batch.isEmpty()) return;
 
         StringBuilder sb = new StringBuilder("INSERT OR REPLACE INTO \"")
                 .append(table)
-                .append("\"(player_uuid, player_name, value) VALUES ");
+                .append("\"(entry_key, entry_display, value) VALUES ");
         for (int i = 0; i < batch.size(); i++) {
             sb.append("(?, ?, ?)");
             if (i < batch.size() - 1) sb.append(',');
@@ -77,9 +77,9 @@ public class SQLiteBoardRepository implements BoardRepository {
             try (Connection c = ds.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 int idx = 1;
-                for (JdbcBoardRepository.BoardBatchEntry e : batch) {
-                    ps.setString(idx++, e.uuid);
-                    ps.setString(idx++, e.name);
+                for (BoardBatchEntry e : batch) {
+                    ps.setString(idx++, e.key);
+                    ps.setString(idx++, e.display);
                     ps.setDouble(idx++, e.value);
                 }
                 ps.executeUpdate();
@@ -97,9 +97,9 @@ public class SQLiteBoardRepository implements BoardRepository {
     @Override
     public List<BoardEntry> loadTop(String table, int limit) {
         List<BoardEntry> list = new ArrayList<>();
-        String sql = "SELECT player_uuid, player_name, value "
+        String sql = "SELECT entry_key, entry_display, value "
                 + "FROM \"" + table + "\" "
-                + "ORDER BY value DESC, player_name ASC"
+                + "ORDER BY value DESC, entry_display ASC"
                 + (limit > 0 ? " LIMIT ?" : "");
 
         try (Connection c = ds.getConnection();
@@ -110,8 +110,8 @@ public class SQLiteBoardRepository implements BoardRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(new BoardEntry(
-                            rs.getString("player_uuid"),
-                            rs.getString("player_name"),
+                            rs.getString("entry_key"),
+                            rs.getString("entry_display"),
                             rs.getDouble("value")
                     ));
                 }

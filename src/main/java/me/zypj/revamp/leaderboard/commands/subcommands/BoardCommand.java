@@ -11,7 +11,9 @@ import org.bukkit.command.CommandSender;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RequiredArgsConstructor
 public class BoardCommand implements ISubCommand {
@@ -53,83 +55,85 @@ public class BoardCommand implements ISubCommand {
         String action = args[0].toLowerCase();
         switch (action) {
             case "add":
-                if (args.length < 2) {
+                if (args.length < 4) {
                     sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.add.usage")
-                            .replace("{usage}", "/lb board add <placeholder>"));
+                            .replace("{usage}", "/lb board add <boardKey> <key-placeholder> <value-placeholder>"));
                     return false;
                 }
-                String rawAdd = args[1].replace("%", "").replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
-                plugin.getBootstrap().getBoardService().addBoard(rawAdd);
+
+                String boardKey = args[1].replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+                String keyPh = args[2];
+                String valPh = args[3];
+                plugin.getBootstrap().getBoardsConfigAdapter().addStringBoard(boardKey, keyPh, valPh);
+                plugin.getBootstrap().getBoardsConfigAdapter().reload();
                 sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.add.board-added")
-                        .replace("{board}", rawAdd));
+                        .replace("{board}", boardKey));
                 break;
 
             case "remove":
                 if (args.length < 2) {
                     sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.remove.usage")
-                            .replace("{usage}", "/lb board remove <placeholder>"));
+                            .replace("{usage}", "/lb board remove <boardKey>"));
                     return false;
                 }
-                String rawRem = args[1].replace("%", "").replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
-                plugin.getBootstrap().getBoardService().removeBoard(rawRem);
+
+                String remKey = args[1].replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+                plugin.getBootstrap().getBoardsConfigAdapter().removeBoard(remKey);
+                plugin.getBootstrap().getBoardsConfigAdapter().reload();
                 sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.remove.board-del")
-                        .replace("{board}", rawRem));
+                        .replace("{board}", remKey));
                 break;
 
             case "list":
-                List<String> boards = plugin.getBootstrap().getBoardService().getBoards();
-                sender.sendMessage(plugin.getBootstrap()
-                        .getMessagesAdapter()
-                        .getMessage("commands.board.list.top-message"));
-
-                boards.forEach(b -> sender.sendMessage(
-                        plugin.getBootstrap()
-                                .getMessagesAdapter()
-                                .getMessage("commands.board.list.board-message")
-                                .replace("{board}", b)
-                ));
+                Set<String> boards = plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys();
+                sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.list.top-message"));
+                for (String b : boards) {
+                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.list.board-message")
+                            .replace("{board}", b));
+                }
                 break;
 
             case "test":
                 if (args.length < 2) {
                     sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.usage")
-                            .replace("{usage}", "/lb board test <board>"));
+                            .replace("{usage}", "/lb board test <boardKey>"));
                     return false;
                 }
-                String rawTest = args[1].replace("%", "").replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
-                List<String> registered = plugin.getBootstrap().getBoardService().getBoards();
-                if (!registered.contains(rawTest)) {
-                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.board-not-found").replace("{board}", rawTest));
+
+                String testKey = args[1].replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+                Set<String> keys = plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys();
+
+                if (!keys.contains(testKey)) {
+                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.board-not-found")
+                            .replace("{board}", testKey));
                     return false;
                 }
+
                 List<BoardEntry> top = plugin.getBootstrap()
                         .getBoardService()
-                        .getLeaderboard(rawTest, PeriodType.TOTAL, 10);
+                        .getLeaderboard(testKey, PeriodType.TOTAL, 10);
+
                 if (top.isEmpty()) {
-                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.board-empty").replace("{board}", rawTest));
+                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.board-empty")
+                            .replace("{board}", testKey));
                     return false;
                 }
-                sender.sendMessage(plugin.getBootstrap()
-                        .getMessagesAdapter()
-                        .getMessage("commands.board.test.top-message")
-                        .replace("{board}", rawTest));
+
+                sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.top-message")
+                        .replace("{board}", testKey));
 
                 for (int i = 0; i < top.size(); i++) {
                     BoardEntry e = top.get(i);
-                    sender.sendMessage(plugin.getBootstrap()
-                            .getMessagesAdapter()
-                            .getMessage("commands.board.test.player-message")
+                    sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.entry-message")
                             .replace("{position}", String.valueOf(i + 1))
-                            .replace("{player-name}", e.getPlayerName())
+                            .replace("{entry-display}", e.getDisplay())
                             .replace("{value}", String.valueOf(e.getValue()))
                     );
                 }
 
-                String remainsPh = "%lb_remains_total_" + rawTest + "%";
+                String remainsPh = "%lb_remains_total_" + testKey + "%";
                 String remaining = PlaceholderAPI.setPlaceholders(null, remainsPh);
-                sender.sendMessage(plugin.getBootstrap()
-                        .getMessagesAdapter()
-                        .getMessage("commands.board.test.reset-message")
+                sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.board.test.reset-message")
                         .replace("{remaing}", remaining));
                 break;
 
@@ -144,20 +148,20 @@ public class BoardCommand implements ISubCommand {
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("add", "remove", "list", "test").stream()
+            return Stream.of("add", "remove", "list", "test")
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
+
         if (args.length == 2) {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();
-            if ("remove".equals(sub) || "test".equals(sub)) {
-                return plugin.getBootstrap().getBoardService()
-                        .getBoards().stream()
+            if (sub.equals("remove") || sub.equals("list")) {
+                return plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys().stream()
                         .filter(b -> b.startsWith(prefix))
                         .collect(Collectors.toList());
             }
-            if ("add".equals(sub)) {
+            if (sub.equals("add")) {
                 return plugin.getBootstrap().getConfigAdapter()
                         .getCustomPlaceholders().values().stream()
                         .map(cp -> cp.getPlaceholder().replace("%", "").toLowerCase())

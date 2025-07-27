@@ -34,10 +34,10 @@ public class JdbcBoardRepository implements BoardRepository {
     @Override
     public void initTables(List<String> rawBoards) {
         String ddlTemplate = "CREATE TABLE IF NOT EXISTS `%s` (" +
-                "player_uuid VARCHAR(36) NOT NULL," +
-                "player_name VARCHAR(16) NOT NULL," +
+                "entry_key VARCHAR(64) NOT NULL," +
+                "entry_display VARCHAR(64) NOT NULL," +
                 "value DOUBLE NOT NULL," +
-                "PRIMARY KEY (player_uuid)" +
+                "PRIMARY KEY (entry_key)" +
                 ")";
         for (String table : rawBoards) {
             String ddl = String.format(ddlTemplate, table);
@@ -46,14 +46,14 @@ public class JdbcBoardRepository implements BoardRepository {
     }
 
     @Override
-    public void save(String table, String uuid, String name, double value) {
-        String sql = "INSERT INTO `" + table + "`(player_uuid, player_name, value) VALUES(?, ?, ?)"
-                + " ON DUPLICATE KEY UPDATE player_name=VALUES(player_name), value=VALUES(value)";
+    public void save(String table, String entryKey, String entryDisplay, double value) {
+        String sql = "INSERT INTO `" + table + "`(entry_key, entry_display, value) VALUES(?, ?, ?)"
+                + " ON DUPLICATE KEY UPDATE entry_display=VALUES(entry_display), value=VALUES(value)";
         executor.submit(() -> {
             try (Connection c = ds.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, uuid);
-                ps.setString(2, name);
+                ps.setString(1, entryKey);
+                ps.setString(2, entryDisplay);
                 ps.setDouble(3, value);
                 ps.executeUpdate();
             } catch (SQLException ex) {
@@ -63,17 +63,17 @@ public class JdbcBoardRepository implements BoardRepository {
     }
 
     @Override
-    public void batchSave(String table, List<JdbcBoardRepository.BoardBatchEntry> batch) {
+    public void batchSave(String table, List<BoardBatchEntry> batch) {
         if (batch.isEmpty()) return;
 
         StringBuilder sb = new StringBuilder("INSERT INTO `")
                 .append(table)
-                .append("`(player_uuid, player_name, value) VALUES ");
+                .append("`(entry_key, entry_display, value) VALUES ");
         for (int i = 0; i < batch.size(); i++) {
             sb.append("(?, ?, ?)");
             if (i < batch.size() - 1) sb.append(',');
         }
-        sb.append(" ON DUPLICATE KEY UPDATE player_name=VALUES(player_name), value=VALUES(value)");
+        sb.append(" ON DUPLICATE KEY UPDATE entry_display=VALUES(entry_display), value=VALUES(value)");
         String sql = sb.toString();
 
         executor.submit(() -> {
@@ -81,8 +81,8 @@ public class JdbcBoardRepository implements BoardRepository {
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 int idx = 1;
                 for (BoardBatchEntry e : batch) {
-                    ps.setString(idx++, e.uuid);
-                    ps.setString(idx++, e.name);
+                    ps.setString(idx++, e.key);
+                    ps.setString(idx++, e.display);
                     ps.setDouble(idx++, e.value);
                 }
                 ps.executeUpdate();
@@ -100,9 +100,9 @@ public class JdbcBoardRepository implements BoardRepository {
     @Override
     public List<BoardEntry> loadTop(String table, int limit) {
         List<BoardEntry> list = new ArrayList<>();
-        String sql = "SELECT player_uuid, player_name, value "
+        String sql = "SELECT entry_key, entry_display, value "
                 + "FROM `" + table + "` "
-                + "ORDER BY value DESC, player_name ASC"
+                + "ORDER BY value DESC, entry_display ASC"
                 + (limit > 0 ? " LIMIT ?" : "");
 
         try (Connection c = ds.getConnection();
@@ -113,8 +113,8 @@ public class JdbcBoardRepository implements BoardRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(new BoardEntry(
-                            rs.getString("player_uuid"),
-                            rs.getString("player_name"),
+                            rs.getString("entry_key"),
+                            rs.getString("entry_display"),
                             rs.getDouble("value")
                     ));
                 }
@@ -144,18 +144,6 @@ public class JdbcBoardRepository implements BoardRepository {
             s.executeUpdate(sql);
         } catch (SQLException ex) {
             LOGGER.log(Level.SEVERE, "Error executing SQL: " + sql, ex);
-        }
-    }
-
-    public static class BoardBatchEntry {
-        public final String uuid;
-        public final String name;
-        public final double value;
-
-        public BoardBatchEntry(String uuid, String name, double value) {
-            this.uuid = uuid;
-            this.name = name;
-            this.value = value;
         }
     }
 }

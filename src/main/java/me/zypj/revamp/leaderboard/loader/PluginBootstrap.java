@@ -2,11 +2,13 @@ package me.zypj.revamp.leaderboard.loader;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.var;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.ApplicationAdapter;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.MessagesAdapter;
+import me.zypj.revamp.leaderboard.board.BoardFactory;
 import me.zypj.revamp.leaderboard.repository.ArchiveRepository;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcArchiveRepository;
@@ -38,6 +40,8 @@ public class PluginBootstrap {
     private ApplicationAdapter applicationAdapter;
     private BoardsConfigAdapter boardsConfigAdapter;
 
+    private BoardFactory boardFactory;
+
     private DatabaseService databaseService;
     private BoardRepository boardRepository;
     private ArchiveRepository archiveRepository;
@@ -51,6 +55,7 @@ public class PluginBootstrap {
 
     public void init() {
         setupFiles();
+        setupFactory();
         setupDatabase();
         setupServices();
         setupWeb();
@@ -75,6 +80,10 @@ public class PluginBootstrap {
         applicationAdapter.init();
     }
 
+    private void setupFactory() {
+        boardFactory = new BoardFactory(plugin);
+    }
+
     private void setupDatabase() {
         databaseService = new DatabaseService(plugin);
 
@@ -87,8 +96,10 @@ public class PluginBootstrap {
     }
 
     private void setupServices() {
+        var allBoards = boardFactory.createAll();
+
         shardManager = new ShardManager(plugin);
-        boardService = new BoardService(plugin);
+        boardService = new BoardService(plugin, allBoards);
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
         historyService = new HistoryService(plugin);

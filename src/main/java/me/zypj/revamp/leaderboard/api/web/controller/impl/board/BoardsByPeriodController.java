@@ -4,6 +4,7 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,16 +24,17 @@ public class BoardsByPeriodController {
             @RequestParam(defaultValue = "0") int limit
     ) {
         PeriodType pt = PeriodType.valueOf(period.toUpperCase());
-        List<String> keys = plugin.getBootstrap()
+        List<String> keys = new ArrayList<>(plugin.getBootstrap()
                 .getBoardsConfigAdapter()
-                .getBoards();
+                .getBoardKeys());
+
         return keys.stream().collect(Collectors.toMap(
                 key -> key,
                 key -> plugin.getBootstrap()
                         .getBoardService()
                         .getLeaderboard(key, pt, limit)
                         .stream()
-                        .map(e -> new BoardController.BoardEntryDto(e.getUuid(), e.getPlayerName(), e.getValue()))
+                        .map(e -> new BoardController.BoardEntryDto(e.getKey(), e.getDisplay(), e.getValue()))
                         .collect(Collectors.toList())
         ));
     }

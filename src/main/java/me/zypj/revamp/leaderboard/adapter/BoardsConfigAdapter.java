@@ -1,54 +1,87 @@
 package me.zypj.revamp.leaderboard.adapter;
 
+import lombok.Getter;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
 
 public class BoardsConfigAdapter {
+
+    public enum BoardType {PLAYER, STRING}
+
+    @Getter
+    public static class BoardConfig {
+        private final BoardType type;
+        private final String placeholder;
+        private final String keyPlaceholder;
+        private final String valuePlaceholder;
+
+        public BoardConfig(BoardType type,
+                           String placeholder,
+                           String keyPlaceholder,
+                           String valuePlaceholder) {
+            this.type = type;
+            this.placeholder = placeholder;
+            this.keyPlaceholder = keyPlaceholder;
+            this.valuePlaceholder = valuePlaceholder;
+        }
+    }
+
     private final File file;
-    private YamlConfiguration configuration;
+    private YamlConfiguration cfg;
 
     public BoardsConfigAdapter(JavaPlugin plugin) {
         this.file = new File(plugin.getDataFolder(), "boards.yml");
-        if (!file.exists()) {
-            plugin.saveResource("boards.yml", false);
-        }
-        this.configuration = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) plugin.saveResource("boards.yml", false);
+        this.cfg = YamlConfiguration.loadConfiguration(file);
     }
 
     public void reload() {
-        this.configuration = YamlConfiguration.loadConfiguration(file);
+        this.cfg = YamlConfiguration.loadConfiguration(file);
     }
 
-    public List<String> getBoards() {
-        return configuration.getStringList("boards");
+    public Set<String> getBoardKeys() {
+        ConfigurationSection sec = cfg.getConfigurationSection("boards");
+        return sec == null ? Collections.emptySet() : sec.getKeys(false);
     }
 
-    public void addBoard(String placeholder) {
-        List<String> list = getBoards();
-        if (!list.contains(placeholder)) {
-            list.add(placeholder);
-            configuration.set("boards", list);
-            save();
+    public BoardConfig getBoardConfig(String boardKey) {
+        String path = "boards." + boardKey + ".";
+        String typeStr = cfg.getString(path + "type", "player").toUpperCase(Locale.ROOT);
+        BoardType type = BoardType.valueOf(typeStr);
+
+        if (type == BoardType.PLAYER) {
+            String ph = cfg.getString(path + "placeholder");
+            return new BoardConfig(type, ph, null, null);
+        } else {
+            String keyPh = cfg.getString(path + "key-placeholder");
+            String valPh = cfg.getString(path + "value-placeholder");
+            return new BoardConfig(type, null, keyPh, valPh);
         }
     }
 
-    public void removeBoard(String placeholder) {
-        List<String> list = getBoards();
-        if (list.remove(placeholder)) {
-            configuration.set("boards", list);
-            save();
-        }
-    }
-
-    private void save() {
+    public void save() {
         try {
-            configuration.save(file);
+            cfg.save(file);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void addStringBoard(String boardKey, String keyPh, String valuePh) {
+        String base = "boards." + boardKey + ".";
+        cfg.set(base + "type", "string");
+        cfg.set(base + "key-placeholder", keyPh);
+        cfg.set(base + "value-placeholder", valuePh);
+        save();
+    }
+
+    public void removeBoard(String boardKey) {
+        cfg.set("boards." + boardKey, null);
+        save();
     }
 }

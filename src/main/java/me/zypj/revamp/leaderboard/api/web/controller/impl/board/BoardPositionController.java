@@ -4,10 +4,7 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -32,11 +29,11 @@ public class BoardPositionController {
         List<BoardEntry> full = plugin.getBootstrap()
                 .getBoardService()
                 .getLeaderboard(key, pt, 0);
-        for (int i = 0; i < full.size(); i++) {
-            if (full.get(i).getUuid().equals(uuid.toString())) {
+
+        for (int i = 0; i < full.size(); i++)
+            if (full.get(i).getKey().equals(uuid.toString()))
                 return i + 1;
-            }
-        }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Player not on board");
+
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not on board");
     }
 }

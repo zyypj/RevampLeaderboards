@@ -31,7 +31,7 @@ public class ShardManager {
     public void init() {
         if (!enabled) return;
 
-        for (String raw : plugin.getBootstrap().getBoardsConfigAdapter().getBoards()) {
+        for (String raw : plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys()) {
             String base = sanitize(raw);
             Map<PeriodType, List<String>> map = new EnumMap<>(PeriodType.class);
 

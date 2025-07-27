@@ -4,25 +4,27 @@ import lombok.Getter;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 public class HistoricalEntry {
     private final String boardKey;
     private final PeriodType period;
     private final LocalDateTime snapshotTime;
-    private final UUID playerUuid;
-    private final String playerName;
+    private final String entryKey;
+    private final String entryDisplay;
     private final double value;
 
-    public HistoricalEntry(String boardKey, PeriodType period,
+    public HistoricalEntry(String boardKey,
+                           PeriodType period,
                            LocalDateTime snapshotTime,
-                           UUID playerUuid, String playerName, double value) {
+                           String entryKey,
+                           String entryDisplay,
+                           double value) {
         this.boardKey = boardKey;
         this.period = period;
         this.snapshotTime = snapshotTime;
-        this.playerUuid = playerUuid;
-        this.playerName = playerName;
+        this.entryKey = entryKey;
+        this.entryDisplay = entryDisplay;
         this.value = value;
     }
 }

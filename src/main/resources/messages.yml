@@ -1,7 +1,5 @@
 messages:
   no-permission: "&4&lERROR! &cYou do not have permission to do that!"
-  nobody: "Nobody"
-  not-load: "---"
   # Template for days (singular/plural)
   when-days-missing: "{dd} {day-meaning}"
   # Template for hours (singular/plural)
@@ -22,6 +20,8 @@ messages:
   meaning-seconds: "seconds"
   meaning-second: "second"
   meaning-never: "Never"
+  meaning-nobody: "Nobody"
+  meaning-not-load: "---"
 
   commands:
     usage: "&4&lERROR! &cUse: {label} <subcommand>."
@@ -53,5 +53,5 @@ messages:
         board-not-found: "&4&lERROR! &cBoard not found: {board}."
         board-empty: "&cThe board '{board}' is empty!"
         top-message: "&6Top 10 of board '{board}'"
-        player-message: "&e{position}. &f{player-name} &7- &f{value}"
+        entry-message: "&e{position}. &f{entry-display} &7- &f{value}"
         reset-message: "&fResets in &e{remaing}."
