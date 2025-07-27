@@ -2,3 +2,6 @@ gradle
 .gradle
 build
 .idea
+gradle.properties
+gradlew.bat
+gradlew
