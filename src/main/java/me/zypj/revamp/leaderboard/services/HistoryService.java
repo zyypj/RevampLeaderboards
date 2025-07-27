@@ -39,6 +39,10 @@ public class HistoryService {
         scheduleWeekly();
     }
 
+    public void takeSnapshot(PeriodType period) {
+        snapshotAll(period);
+    }
+
     private void scheduleDaily() {
         String timeStr = cfg.getString("history.schedule.daily.time", "00:00");
         LocalTime t;

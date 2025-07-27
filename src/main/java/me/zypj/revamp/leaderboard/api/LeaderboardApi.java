@@ -80,4 +80,45 @@ public interface LeaderboardApi {
      * Clears all entries from every registered leaderboard across all periods.
      */
     void clearAllBoards();
+
+    /**
+     * Retrieve a custom PlaceholderAPI value for a given player and data type.
+     *
+     * @param playerUuid the UUID of the player
+     * @param type       the identifier of the custom placeholder (as defined in config)
+     * @return the last cached placeholder value (or empty string if none)
+     */
+    String getCustomPlaceholder(UUID playerUuid, String type);
+
+    /**
+     * Force a refresh of all custom placeholders for every online player.
+     */
+    void refreshCustomPlaceholders();
+
+    /**
+     * Get all shard table names backing a given board & period.
+     *
+     * @param boardKey the leaderboard key
+     * @param period   the period type
+     * @return a list of table names (in order)
+     */
+    List<String> getShards(String boardKey, PeriodType period);
+
+    /**
+     * Get the single shard table name that will be used for the next write
+     * of this board & period.
+     *
+     * @param boardKey the leaderboard key
+     * @param period   the period type
+     * @return the table name where new entries are written
+     */
+    String getWriteShard(String boardKey, PeriodType period);
+
+    /**
+     * Manually trigger an immediate history snapshot of *all* boards for
+     * the given period (normally scheduled by HistoryService).
+     *
+     * @param period the period type (DAILY, WEEKLY, etc.)
+     */
+    void snapshotHistory(PeriodType period);
 }
