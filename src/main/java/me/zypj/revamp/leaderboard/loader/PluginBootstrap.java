@@ -41,6 +41,7 @@ public class PluginBootstrap {
     private SchedulerService schedulerService;
     private HistoryService historyService;
     private ShardManager shardManager;
+    private PlaceholderService placeholderService;
 
     public void init() {
         setupFiles();
@@ -78,6 +79,7 @@ public class PluginBootstrap {
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
         historyService = new HistoryService(plugin);
+        placeholderService = new PlaceholderService(plugin);
 
         shardManager.init();
 
