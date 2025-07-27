@@ -4,198 +4,298 @@
 [![Java 1.8+](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](#)  
 [![PlaceholderAPI](https://img.shields.io/badge/PlaceholderAPI-✔️-blue.svg)](#)
 
-A **leaderboards** plugin for Spigot/Paper that generates **daily**, **weekly**, **monthly** and **total** rankings from any PlaceholderAPI placeholder.
+A high‑performance Spigot/Paper plugin that generates **daily**, **weekly**, **monthly** and **total** leaderboards from any PlaceholderAPI placeholder — now with **SQLite** support and an optional embedded HTTP server for RESTful access.
 
 ---
 
-## 📋 Table of Contents
+## 🚀 Installation
 
-- [✨ Features](#features)  
-- [⚙️ Requirements](#requirements)  
-- [🛠️ Configuration](#configuration)  
-  - [boards.yml](#boardsyml)  
-  - [config.yml](#configyml)  
-  - [messages.yml](#messagesyml)  
-- [🎯 Available Placeholders](#available-placeholders)  
-- [🔧 Commands](#commands)  
+1. Drop `RevampLeaderboards.jar` into your server’s `plugins/` folder.  
+2. Restart the server to generate the default configuration files in `plugins/RevampLeaderboards/`.  
 
 ---
 
-## ✨ Features
+## 🛠️ REST API Usage
 
-- **Daily**, **weekly**, **monthly** and **total** leaderboards  
-- In-memory **cache** (Guava) for high performance  
-- **MySQL** support (via HikariCP)  
-- Default placeholders: `playername`, `uuid`, `amount`  
-- **Custom** per‑player placeholders  
-- Runtime creation/removal of leaderboards  
+All API endpoints live under:
+
+```
+http://<host>:<port><base-path>
+```
+
+By default:
+
+```
+http://localhost:8080/api
+```
+
+### 1. List all registered boards
+
+* **Endpoint**: `GET /boards`
+* **Description**: Returns a list of all board keys.
+* **Example**:
+
+  ```bash
+  curl http://localhost:8080/api/boards
+  ```
+* **Response**:
+
+  ```json
+  [
+    "player_kills",
+    "player_deaths",
+    "bw_wins"
+  ]
+  ```
 
 ---
 
-## ⚙️ Requirements
+### 2. Retrieve a leaderboard
 
-- Java 1.8 or higher  
-- Spigot / Paper 1.8+  
-- [PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/)  
-- MySQL or SQLite (HikariCP)  
+* **Endpoint**: `GET /boards/{key}`
+* **Query Parameters**:
+
+  * `period` (optional): `daily` | `weekly` | `monthly` | `total`
+    *Default: `total`*
+  * `page` (optional): zero-based page index *(default: 0)*
+  * `size` (optional): page size *(default: 10; set to 0 for all entries)*
+* **Example**:
+
+  ```bash
+  curl "http://localhost:8080/api/boards/player_kills?period=weekly&page=0&size=5"
+  ```
+* **Response**:
+
+  ```json
+  {
+    "totalItems": 42,
+    "totalPages": 9,
+    "currentPage": 0,
+    "pageSize": 5,
+    "items": [
+      { "uuid": "uuid‑1", "playerName": "Alice", "value": 128 },
+      { "uuid": "uuid‑2", "playerName": "Bob",   "value": 115 }
+      // …
+    ]
+  }
+  ```
 
 ---
 
-## 🛠️ Configuration
+### 3. Get a player’s position
 
-After the first startup, the `plugins/RevampLeaderboards/` folder will contain:
+* **Endpoint**: `GET /boards/{key}/{period}/position/{uuid}`
+* **Description**: Returns the 1‑based rank of the specified player on the given board and period.
+* **Example**:
 
-* `boards.yml`  
-* `config.yml`  
-* `messages.yml`  
+  ```bash
+  curl http://localhost:8080/api/boards/player_kills/weekly/position/123e4567-e89b-12d3-a456-426614174000
+  ```
+* **Response**:
 
-### boards.yml
+  ```text
+  5
+  ```
 
-```yaml
-boards:
-  - player_kills
-  - player_deaths
-  - bw_wins
+---
+
+### 4. List all supported periods
+
+* **Endpoint**: `GET /periods`
+* **Description**: Returns the list of valid period identifiers.
+* **Example**:
+
+  ```bash
+  curl http://localhost:8080/api/periods
+  ```
+* **Response**:
+
+  ```json
+  ["daily","weekly","monthly","total"]
+  ```
+
+---
+
+### 5. Fetch top entries for every board in a period
+
+* **Endpoint**: `GET /boards/period/{period}`
+* **Query Parameters**:
+
+  * `limit` (optional): max entries per board *(default: all)*
+* **Example**:
+
+  ```bash
+  curl "http://localhost:8080/api/boards/period/daily?limit=3"
+  ```
+* **Response**:
+
+  ```json
+  {
+    "player_kills": [
+      { "uuid": "uuid‑1", "playerName": "Alice", "value": 12 },
+      { "uuid": "uuid‑2", "playerName": "Bob",   "value": 10 },
+      { "uuid": "uuid‑3", "playerName": "Carol", "value": 8 }
+    ],
+    "bw_wins": [
+      // …
+    ]
+  }
+  ```
+
+---
+
+### 6. Get historical snapshots
+
+#### 6.1 Board history
+
+* **Endpoint**: `GET /history/board/{key}/{period}`
+* **Query Parameters**:
+
+  * `from` (optional): ISO‑8601 date‑time
+  * `to`   (optional): ISO‑8601 date‑time
+* **Example**:
+
+  ```bash
+  curl "http://localhost:8080/api/history/board/player_kills/weekly?from=2025-07-01T00:00&to=2025-07-27T23:59"
+  ```
+* **Response**:
+
+  ```json
+  [
+    {
+      "snapshotTime": "2025-07-01T00:00:00",
+      "entries": [
+        { "uuid":"uuid‑1","playerName":"Alice","value":15 },
+        // …
+      ]
+    },
+    // …
+  ]
+  ```
+
+#### 6.2 Player history
+
+* **Endpoint**: `GET /history/player/{uuid}/{key}/{period}`
+* **Query Parameters**: same as board history
+* **Example**:
+
+  ```bash
+  curl "http://localhost:8080/api/history/player/123e4567-e89b-12d3-a456-426614174000/player_kills/daily"
+  ```
+* **Response**:
+
+  ```json
+  [
+    { "snapshotTime": "2025-07-25T00:00:00", "value": 7 },
+    { "snapshotTime": "2025-07-26T00:00:00", "value": 9 }
+  ]
+  ```
+
+---
+
+### 7. List online players
+
+* **Endpoint**: `GET /players`
+* **Description**: Returns the UUID and name of each player currently online.
+* **Example**:
+
+  ```bash
+  curl http://localhost:8080/api/players
+  ```
+* **Response**:
+
+  ```json
+  [
+    { "uuid":"uuid‑1","name":"Alice" },
+    { "uuid":"uuid‑2","name":"Bob" }
+  ]
+  ```
+
+---
+
+## 🔧 Commands (in‑game)
+
+| Command                     | Permission           | Description                                                        |
+| --------------------------- | -------------------- | ------------------------------------------------------------------ |
+| `/lb reload`                | `leaderboard.reload` | Reload all configurations (application, boards, config, messages). |
+| `/lb verify`                | `leaderboard.verify` | Verify boards and refresh cache.                                   |
+| `/lb board add <key>`       | `leaderboard.board`  | Add a new leaderboard at runtime.                                  |
+| `/lb board remove <key>`    | `leaderboard.board`  | Remove an existing leaderboard.                                    |
+| `/lb board list`            | `leaderboard.board`  | List all registered leaderboards.                                  |
+| `/lb board test <key>`      | `leaderboard.board`  | Show top 10 and next reset time for `<key>`.                       |
+| `/lb sensive resetDatabase` | `OP`                 | Wipe the entire database (server operators only).                  |
+
+---
+
+## 💬 PlaceholderAPI Integration
+
+RevampLeaderboards ships with a set of built‑in PlaceholderAPI expansions under the `%lb_…%` namespace, plus support for **custom‑placeholders** defined in your `config.yml`.
+
+### Built‑in placeholders
+
+- **Remaining time until next reset**  
+```
+
+%lb\_remains\_<period>%
+
+```
+- `<period>`: `daily` | `weekly` | `monthly` | `total`  
+- Returns a human‑readable duration until the next leaderboard reset (e.g. “in 02h 15m”).
+
+- **Player’s own rank**  
+```
+
+%lb\_position\_<period>\_<boardKey>%
+
+```
+- `<boardKey>`: your board identifier (e.g. `player_kills`)  
+- Returns the 1‑based position of the requesting player.
+
+- **Any column from a given rank entry**  
+```
+
+%lb\_<dataType>*<period>*<position>\_<boardKey>%
+```
+
+````
+- `<dataType>`:
+  - `playerName` – display name  
+  - `uuid` – player UUID  
+  - `amount` – the raw numeric value (formatted)  
+- `<position>`: 1‑based rank index  
+- Example:
+  ```text
+  %lb_amount_weekly_1_player_kills%
+  ```
+  → value of the top player on the **weekly** kills board.
 ````
 
-### config.yml
+### 🎨 Custom placeholders
+
+If you need more fields—tags, guild colors, titles, etc.—define them under `custom-placeholders` in your **`plugins/RevampLeaderboards/config.yml`**:
 
 ```yaml
-database:
-  host: "localhost"
-  port: 3306
-  database: "database"
-  user: "username"
-  password: ""
-
 custom-placeholders:
-  # %lb_tag_<position>_total_<board>%
-  0:
-    can-be-null: false
-    data: tag
-    placeholder: "%leaftags_tag_prefix%"
+# slot 0 → %lb_tag_<position>_<period>_<boardKey>%
+0:
+  can-be-null: false          # never return empty (defaults to "")
+  data: tag                   # logical name used in the placeholder
+  placeholder: "%leaftags_tag_prefix%"
 
-  # %lb_guild_<position>_total_<board>%
-  1:
-    can-be-null: true
-    data: guild
-    placeholder: "%leafguilds_guild_colortag%"
+# slot 1 → %lb_guild_<position>_<period>_<boardKey>%
+1:
+  can-be-null: true           # allow null/empty results
+  data: guild
+  placeholder: "%leafguilds_guild_colortag%"
+````
 
-scheduler:
-  update:
-    initial-delay-ticks: 20
-    period-ticks: 1200
+After reloading (`/lb reload`), you can use:
 
-  reset:
-    daily:
-      time: "00:00"
-
-    weekly:
-      day: "SUNDAY"
-      time: "00:00"
-
-    monthly:
-      day: 1
-      time: "00:00"
+```
+%lb_tag_1_total_player_kills%
+%lb_guild_3_daily_bw_wins%
 ```
 
-### messages.yml
-
-```yaml
-messages:
-  nobody: "Ninguém"
-  
-  # remaining time placeholders
-  when-days-missing: "{dd} {day-meaning}"
-  when-hours-missing: "{hh}:{mm} {hour-meaning}"
-  when-minutes-missing: "{mm}:{ss} {minute-meaning}"
-  when-seconds-missing: "{mm}:{ss} {second-meaning}"
-  meaning-days: "dias"
-  meaning-day: "dia"
-  meaning-hours: "horas"
-  meaning-hour: "hora"
-  meaning-minutes: "minutos"
-  meaning-minute: "minuto"
-  meaning-seconds: "segundos"
-  meaning-second: "segundo"
-  meaning-never: "Nunca"
-
-  commands:
-    reload:
-      success: "&aConfigurations and boards reloaded!"
-    verify:
-      reload: "&aConfigurations reloaded!"
-      invalidate-cache: "&aCache invalidated!"
-      boards-updated: "&aBoards verified!"
-    sensive:
-      usage: "&4&lERROR! &cUse: {usage}."
-      board-not-found: "&4&lERROR! &cBoard not found: {board}."
-      boards-del: "&aAll boards cleared from database."
-      board-del: "&aBoard '{board}' deleted from database successfully!"
-    board:
-      usage: "&4&lERROR! &cUse: {usage}."
-      add:
-        usage: "&4&lERROR! &cUse: {usage}."
-        board-added: "&aBoard '{board}' added successfully!"
-      remove:
-        usage: "&4&lERROR! &cUse: {usage}."
-        board-del: "&eBoard '{board}' removed successfully!"
-      list:
-        top-message: "&6Registered boards:"
-        board-message: " &7- &f{board}"
-      test:
-        usage: "&4&lERROR! &cUse: {usage}."
-        board-not-found: "&4&lERROR! &cBoard not found: {board}."
-        board-empty: "&cThe board '{board}' is empty!"
-        top-message: "&6Top 10 of board '{board}'"
-        player-message: "&e{position}. &f{player-name} &7- &f{value}"
-        reset-message: "&fResets in &e{remaing}."
-```
-
----
-
-## 🎯 Available Placeholders
-
-| Syntax                               | Description                                 |
-| ------------------------------------ | ------------------------------------------- |
-| `%lb_position_<period>_<board>%`     | Position of **the player**                  |
-| `%lb_<type>_<period>_<pos>_<board>%` | Value of each position in the top           |
-| `%lb_remains_<period>_<board>%`      | Time remaining until the leaderboard resets |
-
-* `<period>` = `daily` | `weekly` | `monthly` | `total`
-* `<board>`  = exact name in `boards.yml`
-* `<type>`   = `playername` | `uuid` | `amount` | `<data>` (custom)
-* `<pos>`    = position in the ranking (1–10 or beyond)
-
-**Examples:**
-
-```text
-%lb_position_weekly_player_kills%     → player’s weekly position in kills  
-%lb_playername_total_1_player_kills%  → name of the top 1 player in total kills  
-%lb_amount_monthly_3_bw_wins%         → value of the 3rd position in monthly wins  
-%lb_tag_daily_2_player_kills%         → custom “tag” of the 2nd position in daily kills  
-%lb_remains_daily_player_kills%       → time until the next daily reset of kills  
-```
-
----
-
-## 🔧 Commands
-
-| Command                          | Permission           | Description                                                       |
-| -------------------------------- | -------------------- | ----------------------------------------------------------------- |
-| `/lb reload`                     | `leaderboard.reload` | Reloads `config.yml` and `boards.yml`.                            |
-| `/lb board add <placeholder>`    | `leaderboard.board`  | Adds a new leaderboard at runtime (without `%`).                  |
-| `/lb board remove <placeholder>` | `leaderboard.board`  | Removes an existing leaderboard at runtime.                       |
-| `/lb board list`                 | `leaderboard.board`  | Lists all registered leaderboards.                                |
-| `/lb board test <placeholder>`   | `leaderboard.board`  | Shows top 10 of `<board>` and then the time until the next reset. |
-| `/lb sensive resetDatabase`      | `OP`                 | Clears the entire database (operators only).                      |
-| `/lb verify`                     | `leaderboard.verify` | Verifies all boards and reclassifies them.                        |
-
-> **Basic usage**
->
-> * `/lb reload`
-> * `/lb board add player_kills`
-> * `/lb board remove player_deaths`
-> * `/lb board list`
-> * `/lb board test bw_wins`
-> * `/lb sensive resetDatabase`
+* The numeric index you choose becomes part of the placeholder’s **dataType**.
+* `can-be-null: false` forces an empty string (`""`) when no value is found; `true` will actually return `null`/empty.
+* The `placeholder` field is any valid PlaceholderAPI expression, evaluated per player in offline or online context.
