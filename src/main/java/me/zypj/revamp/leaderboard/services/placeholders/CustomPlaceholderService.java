@@ -27,7 +27,7 @@ public class CustomPlaceholderService {
         this.plugin = plugin;
         this.dataSource = plugin.getBootstrap().getDatabaseService().getDataSource();
         this.placeholders = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
-        this.isSqlite = "sqlite".equalsIgnoreCase(plugin.getBootstrap().getConfigAdapter().getDatabaseType());
+        this.isSqlite = plugin.getBootstrap().getConfigAdapter().getDatabaseType().equalsIgnoreCase("sqlite");
 
         initTable();
         loadAllFromDb();

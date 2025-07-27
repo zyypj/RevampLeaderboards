@@ -89,7 +89,7 @@ public class PluginBootstrap {
 
         ExecutorService dbExec = Executors.newFixedThreadPool(configAdapter.getDatabaseThreadPoolSize());
 
-        boardRepository = "sqlite".equalsIgnoreCase(configAdapter.getDatabaseType())
+        boardRepository = configAdapter.getDatabaseType().equalsIgnoreCase("sqlite")
                 ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExec)
                 : new JdbcBoardRepository(databaseService.getDataSource(), dbExec);
         archiveRepository = new JdbcArchiveRepository(databaseService.getDataSource(), dbExec);

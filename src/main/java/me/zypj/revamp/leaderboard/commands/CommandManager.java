@@ -17,7 +17,9 @@ public class CommandManager implements CommandExecutor, TabCompleter {
             commands.put(sub.name(), sub);
             for (String a : sub.aliases()) commands.put(a, sub);
         }
+
         this.plugin = plugin;
+
         PluginCommand cmd = plugin.getCommand(label);
         cmd.setExecutor(this);
         cmd.setTabCompleter(this);

@@ -1,12 +1,14 @@
 package me.zypj.revamp.leaderboard.adapter;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.shared.file.YAML;
 
 import java.io.IOException;
 
 @Getter
+@RequiredArgsConstructor
 public class ApplicationAdapter {
     private final LeaderboardPlugin plugin;
     private YAML yaml;
@@ -15,10 +17,6 @@ public class ApplicationAdapter {
     private String name;
     private int port;
     private String basePath;
-
-    public ApplicationAdapter(LeaderboardPlugin plugin) {
-        this.plugin = plugin;
-    }
 
     public void init() {
         try {

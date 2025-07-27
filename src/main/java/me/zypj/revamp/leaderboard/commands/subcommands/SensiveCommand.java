@@ -73,7 +73,7 @@ public class SensiveCommand implements ISubCommand {
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
-        if (args.length == 2 && "resetDatabase".equalsIgnoreCase(args[0])) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("resetDatabase")) {
             return plugin.getBootstrap().getBoardsConfigAdapter().getBoardKeys().stream()
                     .filter(b -> b.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
