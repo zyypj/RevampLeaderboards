@@ -1,7 +1,8 @@
-package me.zypj.revamp.leaderboard.services;
+package me.zypj.revamp.leaderboard.services.board.scheduler;
 
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
+import me.zypj.revamp.leaderboard.services.board.BoardService;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.time.*;

@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.services;
+package me.zypj.revamp.leaderboard.services.database;
 
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;

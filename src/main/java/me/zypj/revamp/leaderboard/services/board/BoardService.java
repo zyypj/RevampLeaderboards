@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.services;
+package me.zypj.revamp.leaderboard.services.board;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -14,6 +14,7 @@ import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository.BoardBatchEntry;
 
+import me.zypj.revamp.leaderboard.services.database.ShardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;

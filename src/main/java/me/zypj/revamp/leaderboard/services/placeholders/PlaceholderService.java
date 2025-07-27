@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.services;
+package me.zypj.revamp.leaderboard.services.placeholders;
 
 import lombok.RequiredArgsConstructor;
 import me.clip.placeholderapi.PlaceholderAPI;
