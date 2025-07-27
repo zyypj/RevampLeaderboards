@@ -1,4 +1,4 @@
-package me.zypj.revamp.leaderboard.services;
+package me.zypj.revamp.leaderboard.services.board.history;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -6,6 +6,7 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.ArchiveRepository;
+import me.zypj.revamp.leaderboard.services.board.BoardService;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -37,6 +38,10 @@ public class HistoryService {
         archiveRepository.initHistoryTable();
         scheduleDaily();
         scheduleWeekly();
+    }
+
+    public void takeSnapshot(PeriodType period) {
+        snapshotAll(period);
     }
 
     private void scheduleDaily() {

@@ -12,8 +12,14 @@ import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcArchiveRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.SQLiteBoardRepository;
-import me.zypj.revamp.leaderboard.services.*;
 import me.zypj.revamp.leaderboard.api.web.config.WebConfig;
+import me.zypj.revamp.leaderboard.services.board.BoardService;
+import me.zypj.revamp.leaderboard.services.board.history.HistoryService;
+import me.zypj.revamp.leaderboard.services.board.scheduler.SchedulerService;
+import me.zypj.revamp.leaderboard.services.database.DatabaseService;
+import me.zypj.revamp.leaderboard.services.database.ShardManager;
+import me.zypj.revamp.leaderboard.services.placeholders.CustomPlaceholderService;
+import me.zypj.revamp.leaderboard.services.placeholders.PlaceholderService;
 import org.springframework.boot.SpringApplication;
 
 import java.util.HashMap;
@@ -41,12 +47,20 @@ public class PluginBootstrap {
     private SchedulerService schedulerService;
     private HistoryService historyService;
     private ShardManager shardManager;
+    private PlaceholderService placeholderService;
 
     public void init() {
         setupFiles();
         setupDatabase();
         setupServices();
         setupWeb();
+    }
+
+    public void shutdown() {
+        plugin.getServer().getScheduler().cancelTasks(plugin);
+
+        if (customPlaceholderService != null) customPlaceholderService.shutdown();
+        if (databaseService != null && !databaseService.getDataSource().isClosed()) databaseService.getDataSource().close();
     }
 
     private void setupFiles() {
@@ -78,6 +92,7 @@ public class PluginBootstrap {
         customPlaceholderService = new CustomPlaceholderService(plugin);
         schedulerService = new SchedulerService(plugin);
         historyService = new HistoryService(plugin);
+        placeholderService = new PlaceholderService(plugin);
 
         shardManager.init();
 

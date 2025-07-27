@@ -4,6 +4,8 @@ import me.zypj.revamp.leaderboard.api.LeaderboardApi;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
@@ -66,5 +68,33 @@ public class LeaderboardApiImpl implements LeaderboardApi {
     @Override
     public void clearAllBoards() {
         bootstrap.getBoardService().clearDatabase();
+    }
+
+    @Override
+    public String getCustomPlaceholder(UUID playerUuid, String type) {
+        return bootstrap.getCustomPlaceholderService().getValue(playerUuid, type);
+    }
+
+    @Override
+    public void refreshCustomPlaceholders() {
+        for (Player p : Bukkit.getOnlinePlayers())
+            bootstrap.getCustomPlaceholderService().updatePlayer(p);
+    }
+
+    @Override
+    public List<String> getShards(String boardKey, PeriodType period) {
+        return Collections.unmodifiableList(
+                bootstrap.getShardManager().getShards(boardKey, period)
+        );
+    }
+
+    @Override
+    public String getWriteShard(String boardKey, PeriodType period) {
+        return bootstrap.getShardManager().getShardForWrite(boardKey, period);
+    }
+
+    @Override
+    public void snapshotHistory(PeriodType period) {
+        bootstrap.getHistoryService().takeSnapshot(period);
     }
 }

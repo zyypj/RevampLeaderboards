@@ -34,8 +34,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
         new Metrics(this, 26576);
 
-        bootstrap = new PluginBootstrap(this);
-        bootstrap.init();
+        loadBootstrap();
 
         new LeaderBoardPlaceholderExpansion(this).register();
 
@@ -58,12 +57,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        getServer().getScheduler().cancelTasks(this);
-
-        if (bootstrap != null) {
-            bootstrap.getCustomPlaceholderService().shutdown();
-            bootstrap.getDatabaseService().getDataSource().close();
-        }
+        if (bootstrap != null) bootstrap.shutdown();
     }
 
     private boolean checkDependencies() {
@@ -73,6 +67,11 @@ public final class LeaderboardPlugin extends JavaPlugin {
         }
 
         return true;
+    }
+
+    private void loadBootstrap() {
+        bootstrap = new PluginBootstrap(this);
+        bootstrap.init();
     }
 
     private void registerApi() {
