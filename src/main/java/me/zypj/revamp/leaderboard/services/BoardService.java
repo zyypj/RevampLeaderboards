@@ -6,39 +6,42 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.adapter.BoardsConfigAdapter;
 import me.zypj.revamp.leaderboard.adapter.ConfigAdapter;
+import me.zypj.revamp.leaderboard.api.events.BoardEntryAchievedEvent;
+import me.zypj.revamp.leaderboard.api.events.BoardResetEvent;
+import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
-import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository.BoardBatchEntry;
-import me.zypj.revamp.leaderboard.repository.JdbcBoardRepository;
+import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository.BoardBatchEntry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import javax.sql.DataSource;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class BoardService {
 
     private final LeaderboardPlugin plugin;
     private final BoardsConfigAdapter boardsAdapter;
-    private final BoardRepository repo;
+    private final BoardRepository boardRepository;
+    private final ShardManager shardManager;
+
     private final LoadingCache<CacheKey, List<BoardEntry>> cache;
+
     private final Map<String, String> sanitizedMap = new HashMap<>();
     private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
+
     private final ConcurrentMap<String, ConcurrentMap<UUID, Double>> lastValues = new ConcurrentHashMap<>();
 
     public BoardService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
         this.boardsAdapter = plugin.getBootstrap().getBoardsConfigAdapter();
         ConfigAdapter cfg = plugin.getBootstrap().getConfigAdapter();
-
-        int poolSize = cfg.getDatabaseThreadPoolSize();
-        ExecutorService dbExec = Executors.newFixedThreadPool(poolSize);
-        DataSource ds = plugin.getBootstrap().getDatabaseService().getDataSource();
-        this.repo = new JdbcBoardRepository(ds, dbExec);
+        boardRepository = plugin.getBootstrap().getBoardRepository();
+        this.shardManager = plugin.getBootstrap().getShardManager();
 
         for (String raw : boardsAdapter.getBoards()) {
             String san = sanitize(raw);
@@ -53,34 +56,32 @@ public class BoardService {
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(cfg.getCacheTtlSeconds(), TimeUnit.SECONDS)
                 .refreshAfterWrite(cfg.getCacheRefreshSeconds(), TimeUnit.SECONDS)
-                .build(key -> {
-                    String table = sanitizedMap.get(key.raw) + "_" + key.period.name().toLowerCase();
-                    return repo.loadTop(table, key.limit);
-                });
+                .build(this::loadSharded);
     }
 
     public void init() {
         List<String> all = new ArrayList<>();
         tableMap.values().forEach(m -> all.addAll(m.values()));
-        repo.initTables(all);
+        boardRepository.initTables(all);
+        shardManager.init();
     }
 
     public void saveOnJoin(OfflinePlayer off) {
         for (String raw : boardsAdapter.getBoards()) {
-            EnumMap<PeriodType, String> m = tableMap.get(raw);
-            for (Map.Entry<PeriodType, String> e : m.entrySet()) {
+            for (Map.Entry<PeriodType, String> e : tableMap.get(raw).entrySet()) {
                 double v = parsePlaceholder(off, raw);
-                repo.save(e.getValue(), off.getUniqueId().toString(), off.getName(), v);
+                String target = shardManager.getShardForWrite(raw, e.getKey());
+                boardRepository.save(target, off.getUniqueId().toString(), off.getName(), v);
             }
         }
     }
 
     public void updateAll() {
         for (String raw : boardsAdapter.getBoards()) {
-            EnumMap<PeriodType, String> m = tableMap.get(raw);
-            for (String table : m.values()) {
+            for (PeriodType period : PeriodType.values()) {
                 ConcurrentMap<UUID, Double> map = lastValues
-                        .computeIfAbsent(table, t -> new ConcurrentHashMap<>());
+                        .computeIfAbsent(raw + "_" + period, k -> new ConcurrentHashMap<>());
+
                 List<BoardBatchEntry> batch = new ArrayList<>();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     UUID id = p.getUniqueId();
@@ -90,7 +91,27 @@ public class BoardService {
                         batch.add(new BoardBatchEntry(id.toString(), p.getName(), nv));
                     }
                 }
-                repo.batchSave(table, batch);
+
+                if (!batch.isEmpty()) {
+                    String target = shardManager.getShardForWrite(raw, period);
+                    boardRepository.batchSave(target, batch);
+
+                    Map<UUID, Double> changedValues = batch.stream()
+                            .collect(Collectors.toMap(
+                                    be -> UUID.fromString(be.uuid),
+                                    be -> be.value
+                            ));
+                    Bukkit.getPluginManager().callEvent(
+                            new LeaderboardUpdateEvent(raw, period, changedValues)
+                    );
+
+                    for (BoardBatchEntry be : batch) {
+                        UUID id = UUID.fromString(be.uuid);
+                        Bukkit.getPluginManager().callEvent(
+                                new BoardEntryAchievedEvent(raw, period, id, be.value)
+                        );
+                    }
+                }
             }
         }
     }
@@ -106,11 +127,7 @@ public class BoardService {
         try {
             List<BoardEntry> originals = cache.get(key);
             assert originals != null;
-            List<BoardEntry> filtered = new ArrayList<>(originals.size());
-            filtered.addAll(originals);
-
-            if (limit > 0 && filtered.size() > limit) return filtered.subList(0, limit);
-            return filtered;
+            return originals;
         } catch (Exception ex) {
             plugin.getLogger().severe("Failed to load leaderboard: " + ex.getMessage());
             return Collections.emptyList();
@@ -122,22 +139,34 @@ public class BoardService {
     }
 
     public void reset(PeriodType period) {
-        tableMap.values().forEach(m -> repo.truncate(m.get(period)));
+        for (String raw : boardsAdapter.getBoards()) {
+            for (String shard : shardManager.getShards(raw, period)) {
+                boardRepository.truncate(shard);
+            }
+        }
         lastValues.clear();
+        Bukkit.getPluginManager().callEvent(new BoardResetEvent(period));
     }
 
     public void clearDatabase() {
-        tableMap.values().forEach(m -> m.values().forEach(repo::truncate));
+        for (String raw : boardsAdapter.getBoards()) {
+            for (PeriodType pt : PeriodType.values()) {
+                for (String shard : shardManager.getShards(raw, pt)) {
+                    boardRepository.truncate(shard);
+                }
+            }
+        }
         lastValues.clear();
     }
 
     public void clearBoard(String raw) {
-        if (!tableMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
+        if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
 
-        EnumMap<PeriodType, String> m = tableMap.get(raw);
-        for (String table : m.values()) {
-            repo.truncate(table);
-            lastValues.remove(table);
+        for (PeriodType pt : PeriodType.values()) {
+            for (String shard : shardManager.getShards(raw, pt)) {
+                boardRepository.truncate(shard);
+            }
+            lastValues.remove(raw + "_" + pt);
         }
 
         invalidateCache();
@@ -148,21 +177,36 @@ public class BoardService {
         String san = sanitize(raw);
         sanitizedMap.put(raw, san);
         EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
-        for (PeriodType pt : PeriodType.values()) {
+        for (PeriodType pt : PeriodType.values())
             m.put(pt, san + "_" + pt.name().toLowerCase());
-        }
         tableMap.put(raw, m);
-        repo.initTables(new ArrayList<>(m.values()));
+        boardRepository.initTables(new ArrayList<>(m.values()));
+        shardManager.init();
     }
 
     public void removeBoard(String raw) {
         boardsAdapter.removeBoard(raw);
         sanitizedMap.remove(raw);
         tableMap.remove(raw);
+        shardManager.init();
     }
 
     public List<String> getBoards() {
         return Collections.unmodifiableList(boardsAdapter.getBoards());
+    }
+
+    private List<BoardEntry> loadSharded(CacheKey key) {
+        List<BoardEntry> combined = new ArrayList<>();
+        for (String tbl : shardManager.getShards(key.raw, key.period)) {
+            combined.addAll(boardRepository.loadTop(tbl, key.limit > 0 ? key.limit : 0));
+        }
+        combined.sort(Comparator
+                .comparingDouble(BoardEntry::getValue).reversed()
+                .thenComparing(BoardEntry::getPlayerName));
+        if (key.limit > 0 && combined.size() > key.limit) {
+            return combined.subList(0, key.limit);
+        }
+        return combined;
     }
 
     private double parsePlaceholder(OfflinePlayer off, String raw) {

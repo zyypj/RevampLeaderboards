@@ -1,44 +1,75 @@
 database:
-  host: "127.0.0.1"
-  port: 3306
-  database: "database"
-  user: "user"
-  password: "password"
-  thread-pool-size: 4
+  # Database type: "mysql" to use HikariCP with MySQL, "sqlite" to use embedded SQLite
+  type: "sqlite"
+  mysql:
+    host: "127.0.0.1"
+    port: 3306
+    database: "database"
+    user: "user"
+    password: "password"
+    # Size of the thread pool for database operations
+    thread-pool-size: 4
 
 cache:
+  # Time‑to‑live for cache entries, in seconds
   ttl-seconds: 30
+  # Time after which cache entries will be automatically refreshed, in seconds
   refresh-seconds: 30
 
-messages:
-  nobody: "Ninguém"
-  not-load: "---"
+sharding:
+  enabled: true
+  max-entries-per-shard: 10000
 
 custom-placeholders:
-  # %lb_tag_<position>_total_<board>%
+  # Definition of custom placeholders by index
+  # Index 0 → placeholders like %lb_tag_<position>_total_<board>%
   0:
+    # Allow placeholder to return null/empty
     can-be-null: false
+    # Logical name for this placeholder data
     data: tag
+    # PlaceholderAPI expression to fetch the tag prefix
     placeholder: "%leaftags_tag_prefix%"
-  # %lb_guild_<position>_total_<board>%
+  # Index 1 → placeholders like %lb_guild_<position>_total_<board>%
   1:
+    # Allow placeholder to return null/empty
     can-be-null: true
+    # Logical name for this placeholder data
     data: guild
+    # PlaceholderAPI expression to fetch the guild color tag
     placeholder: "%leafguilds_guild_colortag%"
 
 scheduler:
   update:
-    initial-delay-ticks: 20
-    period-ticks: 1200
+    # Initial delay before the first updateAll() run, in seconds
+    initial-delay-seconds: 1
+    # Interval between subsequent updateAll() runs, in seconds
+    period-seconds: 60
 
   reset:
     daily:
+      # Time of day for daily leaderboard reset (HH:mm)
       time: "00:00"
 
     weekly:
+      # Day of week for weekly leaderboard reset (MONDAY, TUESDAY, …, SUNDAY)
       day: "SUNDAY"
+      # Time of day for weekly leaderboard reset (HH:mm)
       time: "00:00"
 
     monthly:
+      # Day of month for monthly leaderboard reset (1–31)
       day: 1
+      # Time of day for monthly leaderboard reset (HH:mm)
+      time: "00:00"
+
+history:
+  schedule:
+    daily:
+      # Time of day to capture daily history snapshot (HH:mm)
+      time: "00:00"
+    weekly:
+      # Day of week to capture weekly history snapshot (MONDAY, TUESDAY, …, SUNDAY)
+      day: "MONDAY"
+      # Time of day to capture weekly history snapshot (HH:mm)
       time: "00:00"

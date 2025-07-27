@@ -1,0 +1,57 @@
+messages:
+  no-permission: "&4&lERROR! &cYou do not have permission to do that!"
+  nobody: "Nobody"
+  not-load: "---"
+  # Template for days (singular/plural)
+  when-days-missing: "{dd} {day-meaning}"
+  # Template for hours (singular/plural)
+  # You can use {hour-meaning} and {minute-meaning}
+  when-hours-missing: "{hh}{hour-meaning}"
+  # Template for minutes (singular/plural)
+  # You can use {minute-meaning} and {second-meaning}
+  when-minutes-missing: "{mm} {minute-meaning}"
+  # Template for seconds (singular/plural)
+  # You can use {second-meaning}
+  when-seconds-missing: "{ss} {second-meaning}"
+  meaning-days: "days"
+  meaning-day: "day"
+  meaning-hours: "hours"
+  meaning-hour: "hour"
+  meaning-minutes: "minutes"
+  meaning-minute: "minute"
+  meaning-seconds: "seconds"
+  meaning-second: "second"
+  meaning-never: "Never"
+
+  commands:
+    usage: "&4&lERROR! &cUse: {label} <subcommand>."
+    subcommand-not-found: "&4&lERROR! &cSub-command not found."
+    reload:
+      success: "&aConfigurations and boards reloaded!"
+    verify:
+      reload: "&aConfigurations reloaded!"
+      invalidate-cache: "&aCache invalidated!"
+      boards-updated: "&aBoards verified!"
+    sensive:
+      usage: "&4&lERROR! &cUse: {usage}."
+      board-not-found: "&4&lERROR! &cBoard not found: {board}."
+      boards-del: "&aAll boards cleared from the database."
+      board-del: "&aBoard '{board}' deleted from the database successfully!"
+    board:
+      usage: "&4&lERROR! &cUse: {usage}."
+      add:
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-added: "&aBoard '{board}' added successfully!"
+      remove:
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-del: "&eBoard '{board}' removed successfully!"
+      list:
+        top-message: "&6Registered boards:"
+        board-message: " &7- &f{board}"
+      test:
+        usage: "&4&lERROR! &cUse: {usage}."
+        board-not-found: "&4&lERROR! &cBoard not found: {board}."
+        board-empty: "&cThe board '{board}' is empty!"
+        top-message: "&6Top 10 of board '{board}'"
+        player-message: "&e{position}. &f{player-name} &7- &f{value}"
+        reset-message: "&fResets in &e{remaing}."

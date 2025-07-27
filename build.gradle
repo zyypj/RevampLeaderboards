@@ -2,10 +2,12 @@ plugins {
     id 'java'
     id("io.freefair.lombok") version "8.14"
     id("com.github.johnrengelman.shadow") version "7.1.0"
+    id("org.springframework.boot") version "2.7.13"
+    id("io.spring.dependency-management") version "1.0.15.RELEASE"
 }
 
 group = 'me.zypj'
-version = '2.0'
+version = '2.2'
 
 repositories {
     mavenCentral()
@@ -16,11 +18,17 @@ dependencies {
     compileOnly files(
             "libs/spigot-1.8.8.jar",
     )
-    compileOnly('me.clip:placeholderapi:2.11.6',)
+    compileOnly(
+            'me.clip:placeholderapi:2.11.6',
+            'org.bstats:bstats-bukkit:3.0.2'
+    )
 
     implementation(
             'com.zaxxer:HikariCP:4.0.3',
-            'com.github.ben-manes.caffeine:caffeine:2.9.3'
+            'com.github.ben-manes.caffeine:caffeine:2.9.3',
+            'com.google.code.gson:gson:2.13.1',
+            'org.springframework.boot:spring-boot-starter-web',
+            'org.xerial:sqlite-jdbc:3.49.1.0'
     )
 }
 
@@ -55,4 +63,9 @@ shadowJar {
     archiveClassifier.set("")
     relocate 'com.github.benmanes.caffeine', 'me.zypj.revamp.lib.caffeine'
     relocate 'com.zaxxer.hikari', 'me.zypj.revamp.lib.hikari'
+    relocate 'org.bstats', 'me.zypj.revamp.lib.bstats'
+    relocate 'org.checkerframework', 'me.zypj.revamp.lib.org.checkerframework'
+    relocate 'org.slf4j', 'me.zypj.revamp.lib.org.slf4j'
+    relocate 'org.sqlite', 'me.zypj.revamp.lib.org.sqlite'
+    relocate 'com.google.errorprone.annotations', 'me.zypj.revamp.lib.com.google.errorprone.annotations'
 }

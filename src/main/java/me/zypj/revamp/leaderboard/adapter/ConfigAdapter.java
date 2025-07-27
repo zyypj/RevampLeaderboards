@@ -16,24 +16,28 @@ public class ConfigAdapter {
         this.config = plugin.getConfig();
     }
 
+    public String getDatabaseType() {
+        return config.getString("database.type");
+    }
+
     public String getDatabaseHost() {
-        return config.getString("database.host");
+        return config.getString("database.mysql.host");
     }
 
     public int getDatabasePort() {
-        return config.getInt("database.port");
+        return config.getInt("database.mysql.port");
     }
 
     public String getDatabaseName() {
-        return config.getString("database.database");
+        return config.getString("database.mysql.database");
     }
 
     public String getDatabaseUser() {
-        return config.getString("database.user");
+        return config.getString("database.mysql.user");
     }
 
     public int getDatabaseThreadPoolSize() {
-        return config.getInt("database.thread-pool-size",
+        return config.getInt("database.mysql.thread-pool-size",
                 Runtime.getRuntime().availableProcessors());
     }
 
@@ -46,15 +50,15 @@ public class ConfigAdapter {
     }
 
     public String getDatabasePassword() {
-        return config.getString("database.password");
+        return config.getString("database.mysql.password");
     }
 
-    public String getNobodyMessage() {
-        return config.getString("messages.nobody", "Nobody").replace("&", "§");
+    public boolean isShardingEnabled() {
+        return config.getBoolean("sharding.enabled", false);
     }
 
-    public String getNotLoadMessage() {
-        return config.getString("messages.not-load", "---").replace("&", "§");
+    public int getShardMaxEntries() {
+        return config.getInt("sharding.max-entries-per-shard", 10000);
     }
 
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {
