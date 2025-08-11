@@ -17,8 +17,14 @@ cache:
   refresh-seconds: 30
 
 sharding:
+  # If true, enables the “sharding” system (splitting leaderboard data into multiple
+  # database tables). This prevents tables from becoming too large and improves query performance.
   enabled: true
-  max-entries-per-shard: 10000
+
+  # Maximum number of records (rows) allowed in each shard (table) for a leaderboard.
+  # Once this limit is reached, the plugin automatically creates a new table
+  # to store the next records.
+  max-entries-per-shard: 100
 
 custom-placeholders:
   # Definition of custom placeholders by index

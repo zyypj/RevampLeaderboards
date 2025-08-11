@@ -27,7 +27,7 @@ public class CustomPlaceholderService {
         this.plugin = plugin;
         this.dataSource = plugin.getBootstrap().getDatabaseService().getDataSource();
         this.placeholders = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
-        this.isSqlite = "sqlite".equalsIgnoreCase(plugin.getBootstrap().getConfigAdapter().getDatabaseType());
+        this.isSqlite = plugin.getBootstrap().getConfigAdapter().getDatabaseType().equalsIgnoreCase("sqlite");
 
         initTable();
         loadAllFromDb();
@@ -89,9 +89,8 @@ public class CustomPlaceholderService {
             }
         }
 
-        if (!changed.isEmpty()) {
+        if (!changed.isEmpty())
             upsert(id, changed, mem);
-        }
     }
 
     private void upsert(UUID id, List<String> types, Map<String, String> mem) {

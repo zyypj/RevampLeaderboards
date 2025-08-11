@@ -55,3 +55,8 @@ messages:
         top-message: "&6Top 10 of board '{board}'"
         player-message: "&e{position}. &f{player-name} &7- &f{value}"
         reset-message: "&fResets in &e{remaing}."
+      addcomposite:
+        usage: "&4&lERROR! &cUse: /lb board addcomposite <compositeKey> <placeholder1> <placeholder2> ..."
+        created: "&aComposite board '{key}' created with &f{count} &aplaceholder(s)!"
+        missing-placeholders: "&4&lERROR! &cYou must provide at least one placeholder."
+        invalid-numeric: "&4&lERROR! &cInvalid numeric placeholder in composite: &f{placeholder} &7(resolved: &f{resolved}&7)"

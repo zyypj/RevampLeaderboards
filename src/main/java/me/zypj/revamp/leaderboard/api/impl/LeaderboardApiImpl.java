@@ -38,9 +38,7 @@ public class LeaderboardApiImpl implements LeaderboardApi {
         List<BoardEntry> list = bootstrap.getBoardService().getLeaderboard(boardKey, period, 0);
         String uuid = playerUuid.toString();
         for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getUuid().equals(uuid)) {
-                return i + 1;
-            }
+            if (list.get(i).getUuid().equals(uuid)) return i + 1;
         }
         return -1;
     }

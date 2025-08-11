@@ -40,8 +40,7 @@ public class ReloadCommand implements ISubCommand {
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
-        plugin.reloadConfig();
-        plugin.getBootstrap().getBoardsConfigAdapter().reload();
+        plugin.getBootstrap().reload();
         sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.reload.success"));
         return true;
     }

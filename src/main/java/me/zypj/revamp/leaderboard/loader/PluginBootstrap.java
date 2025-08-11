@@ -56,6 +56,19 @@ public class PluginBootstrap {
         setupWeb();
     }
 
+    public void reload() {
+        plugin.reloadConfig();
+        messagesAdapter.getYaml().reload();
+        applicationAdapter.getYaml().reload();
+        boardsConfigAdapter.reload();
+
+        shardManager.init();
+        boardService.invalidateCache();
+        boardService.init();
+
+        schedulerService.scheduleAll();
+    }
+
     public void shutdown() {
         plugin.getServer().getScheduler().cancelTasks(plugin);
 
@@ -80,7 +93,7 @@ public class PluginBootstrap {
 
         ExecutorService dbExec = Executors.newFixedThreadPool(configAdapter.getDatabaseThreadPoolSize());
 
-        boardRepository = "sqlite".equalsIgnoreCase(configAdapter.getDatabaseType())
+        boardRepository = configAdapter.getDatabaseType().equalsIgnoreCase("sqlite")
                 ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExec)
                 : new JdbcBoardRepository(databaseService.getDataSource(), dbExec);
         archiveRepository = new JdbcArchiveRepository(databaseService.getDataSource(), dbExec);

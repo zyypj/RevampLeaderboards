@@ -11,16 +11,18 @@ import me.zypj.revamp.leaderboard.api.events.BoardResetEvent;
 import me.zypj.revamp.leaderboard.api.events.LeaderboardUpdateEvent;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
+import me.zypj.revamp.leaderboard.model.CompositeBoard;
 import me.zypj.revamp.leaderboard.repository.BoardRepository;
 import me.zypj.revamp.leaderboard.repository.impl.JdbcBoardRepository.BoardBatchEntry;
-
 import me.zypj.revamp.leaderboard.services.database.ShardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class BoardService {
@@ -37,6 +39,8 @@ public class BoardService {
 
     private final ConcurrentMap<String, ConcurrentMap<UUID, Double>> lastValues = new ConcurrentHashMap<>();
 
+    private final ConcurrentMap<String, CompositeBoard> compositeBoards = new ConcurrentHashMap<>();
+
     public BoardService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
         this.boardsAdapter = plugin.getBootstrap().getBoardsConfigAdapter();
@@ -52,6 +56,15 @@ public class BoardService {
                 m.put(pt, san + "_" + pt.name().toLowerCase());
             }
             tableMap.put(raw, m);
+        }
+
+        Map<String, List<String>> composites = boardsAdapter.getCompositeBoards();
+        if (composites != null) {
+            for (Map.Entry<String, List<String>> e : composites.entrySet()) {
+                String key = sanitize(e.getKey());
+                List<String> phs = e.getValue() == null ? Collections.emptyList() : e.getValue();
+                compositeBoards.put(key, new CompositeBoard(key, phs));
+            }
         }
 
         this.cache = Caffeine.newBuilder()
@@ -196,10 +209,46 @@ public class BoardService {
         return Collections.unmodifiableList(boardsAdapter.getBoards());
     }
 
+    public void addCompositeBoard(String rawKey, List<String> placeholders) {
+        String key = sanitize(rawKey);
+        compositeBoards.put(key, new CompositeBoard(key, placeholders));
+        boardsAdapter.addCompositeBoard(key, placeholders);
+    }
+
+    public void removeCompositeBoard(String rawKey) {
+        String key = sanitize(rawKey);
+        compositeBoards.remove(key);
+        boardsAdapter.removeCompositeBoard(key);
+    }
+
+    public boolean isComposite(String rawKey) {
+        return compositeBoards.containsKey(sanitize(rawKey));
+    }
+
+    public Set<String> getCompositeKeys() {
+        return Collections.unmodifiableSet(compositeBoards.keySet());
+    }
+
+    public double resolveCompositeValue(UUID playerId, String boardKey) {
+        CompositeBoard cb = compositeBoards.get(sanitize(boardKey));
+        if (cb == null) return 0.0;
+        double total = 0.0;
+        OfflinePlayer off = Bukkit.getOfflinePlayer(playerId);
+        for (String ph : cb.getPlaceholders()) {
+            try {
+                String raw = PlaceholderAPI.setPlaceholders(off, ph);
+                total += Double.parseDouble(raw.replace(",", ".").trim());
+            } catch (Exception ignored) {
+            }
+        }
+        return total;
+    }
+
+
     private List<BoardEntry> loadSharded(CacheKey key) {
         List<BoardEntry> combined = new ArrayList<>();
         for (String tbl : shardManager.getShards(key.raw, key.period)) {
-            combined.addAll(boardRepository.loadTop(tbl, key.limit > 0 ? key.limit : 0));
+            combined.addAll(boardRepository.loadTop(tbl, Math.max(key.limit, 0)));
         }
         combined.sort(Comparator
                 .comparingDouble(BoardEntry::getValue).reversed()

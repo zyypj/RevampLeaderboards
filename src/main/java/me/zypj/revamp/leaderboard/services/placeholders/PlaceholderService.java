@@ -26,8 +26,8 @@ public class PlaceholderService {
         String lower = params.toLowerCase(Locale.ROOT);
 
         if (lower.startsWith("remains_")) return handleRemains(params);
-
         if (lower.startsWith("position_")) return handlePosition(player, params);
+        if (lower.startsWith("composite_")) return handleComposite(player, params);
 
         return handleEntryData(player, params);
     }
@@ -164,6 +164,13 @@ public class PlaceholderService {
                 return Integer.toString(i + 1);
 
         return plugin.getBootstrap().getMessagesAdapter().getMessage("meaning-not-load");
+    }
+
+    private String handleComposite(OfflinePlayer player, String params) {
+        String key = params.substring("composite_".length()).toLowerCase(Locale.ROOT);
+        double v = plugin.getBootstrap().getBoardService()
+                .resolveCompositeValue(player.getUniqueId(), key);
+        return formatAmount(v);
     }
 
     private PeriodType parsePeriod(String key) {
