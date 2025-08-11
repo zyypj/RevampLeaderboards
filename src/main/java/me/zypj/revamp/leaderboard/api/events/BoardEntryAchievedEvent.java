@@ -14,16 +14,24 @@ import java.util.UUID;
 public class BoardEntryAchievedEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
-    /** The key of the leaderboard where the entry was achieved. */
+    /**
+     * The key of the leaderboard where the entry was achieved.
+     */
     private final String boardKey;
 
-    /** The period type of the leaderboard (e.g., DAILY, WEEKLY, MONTHLY). */
+    /**
+     * The period type of the leaderboard (e.g., DAILY, WEEKLY, MONTHLY).
+     */
     private final PeriodType period;
 
-    /** The unique ID of the player who achieved the entry. */
+    /**
+     * The unique ID of the player who achieved the entry.
+     */
     private final UUID playerId;
 
-    /** The new score value achieved by the player. */
+    /**
+     * The new score value achieved by the player.
+     */
     private final double newValue;
 
     /**
@@ -36,17 +44,9 @@ public class BoardEntryAchievedEvent extends Event {
      */
     public BoardEntryAchievedEvent(String boardKey, PeriodType period, UUID playerId, double newValue) {
         this.boardKey = boardKey;
-        this.period   = period;
+        this.period = period;
         this.playerId = playerId;
         this.newValue = newValue;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HandlerList getHandlers() {
-        return HANDLERS;
     }
 
     /**
@@ -55,6 +55,14 @@ public class BoardEntryAchievedEvent extends Event {
      * @return handler list instance
      */
     public static HandlerList getHandlerList() {
+        return HANDLERS;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public HandlerList getHandlers() {
         return HANDLERS;
     }
 }

@@ -18,7 +18,6 @@ public class MessagesAdapter {
         try {
             this.yaml = new YAML("messages.yml", plugin);
             yaml.saveDefaultConfig();
-            yaml.reload();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

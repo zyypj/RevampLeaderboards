@@ -1,9 +1,9 @@
 plugins {
     id 'java'
-    id("io.freefair.lombok") version "8.14"
-    id("com.github.johnrengelman.shadow") version "7.1.0"
-    id("org.springframework.boot") version "2.7.13"
-    id("io.spring.dependency-management") version "1.0.15.RELEASE"
+    id 'io.freefair.lombok' version '8.14'
+    id 'com.github.johnrengelman.shadow' version '7.1.0'
+    id 'org.springframework.boot' version '2.7.13' apply false
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
 }
 
 group = 'me.zypj'
@@ -60,7 +60,11 @@ processResources {
 }
 
 shadowJar {
-    archiveClassifier.set("")
+    archiveClassifier.set('')
+    minimize()
+    mergeServiceFiles()
+    zip64 true
+
     relocate 'com.github.benmanes.caffeine', 'me.zypj.revamp.lib.caffeine'
     relocate 'com.zaxxer.hikari', 'me.zypj.revamp.lib.hikari'
     relocate 'org.bstats', 'me.zypj.revamp.lib.bstats'

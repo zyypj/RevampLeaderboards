@@ -13,9 +13,8 @@ public class BoardsConfigAdapter {
 
     public BoardsConfigAdapter(JavaPlugin plugin) {
         this.file = new File(plugin.getDataFolder(), "boards.yml");
-        if (!file.exists()) {
-            plugin.saveResource("boards.yml", false);
-        }
+        if (!file.exists()) plugin.saveResource("boards.yml", false);
+
         this.configuration = YamlConfiguration.loadConfiguration(file);
     }
 

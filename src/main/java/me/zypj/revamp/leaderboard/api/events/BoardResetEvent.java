@@ -12,7 +12,9 @@ import org.bukkit.event.HandlerList;
 public class BoardResetEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
-    /** The period type whose leaderboards have been reset. */
+    /**
+     * The period type whose leaderboards have been reset.
+     */
     private final PeriodType period;
 
     /**
@@ -25,19 +27,19 @@ public class BoardResetEvent extends Event {
     }
 
     /**
-     * {@inheritDoc}
-     */
-    @Override
-    public HandlerList getHandlers() {
-        return HANDLERS;
-    }
-
-    /**
      * Returns the static handler list for registration.
      *
      * @return handler list instance
      */
     public static HandlerList getHandlerList() {
+        return HANDLERS;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public HandlerList getHandlers() {
         return HANDLERS;
     }
 }

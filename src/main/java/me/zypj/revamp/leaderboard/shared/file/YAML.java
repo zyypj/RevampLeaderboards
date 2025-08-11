@@ -48,22 +48,17 @@ public class YAML extends YamlConfiguration {
                 try {
                     copyResource(resource, configFile);
                 } catch (IOException e) {
-                    logError(
-                            "Error saving default resource to file " + configFile.getName(),
-                            e);
+                    logError("Error saving default resource to file " + configFile.getName(), e);
                 }
             } else {
                 try {
                     File parent = configFile.getParentFile();
                     if (!parent.exists() && !parent.mkdirs()) {
-                        logError(
-                                "Could not create directory for file "
-                                        + configFile.getName(),
+                        logError("Could not create directory for file " + configFile.getName(),
                                 new IOException("mkdirs return false"));
                     }
                     if (!configFile.createNewFile()) {
-                        logError(
-                                "Could not create file " + configFile.getName(),
+                        logError("Could not create file " + configFile.getName(),
                                 new IOException("createNewFile return false"));
                     }
                 } catch (IOException e) {
@@ -71,7 +66,14 @@ public class YAML extends YamlConfiguration {
                 }
             }
         }
+
+        try {
+            loadConfig();
+        } catch (Exception e) {
+            logError("Error loading file " + configFile.getName() + " after saving defaults", e);
+        }
     }
+
 
     public void backup(String suffix) {
         File backup =
