@@ -5,10 +5,7 @@ import lombok.Getter;
 import me.zypj.revamp.leaderboard.api.LeaderboardApi;
 import me.zypj.revamp.leaderboard.api.impl.LeaderboardApiImpl;
 import me.zypj.revamp.leaderboard.commands.CommandManager;
-import me.zypj.revamp.leaderboard.commands.subcommands.BoardCommand;
-import me.zypj.revamp.leaderboard.commands.subcommands.ReloadCommand;
-import me.zypj.revamp.leaderboard.commands.subcommands.SensiveCommand;
-import me.zypj.revamp.leaderboard.commands.subcommands.VerifyCommand;
+import me.zypj.revamp.leaderboard.commands.subcommands.*;
 import me.zypj.revamp.leaderboard.hook.LeaderBoardPlaceholderExpansion;
 import me.zypj.revamp.leaderboard.listener.PlayerListeners;
 import me.zypj.revamp.leaderboard.loader.PluginBootstrap;
@@ -44,7 +41,8 @@ public final class LeaderboardPlugin extends JavaPlugin {
                 new BoardCommand(this),
                 new ReloadCommand(this),
                 new SensiveCommand(this),
-                new VerifyCommand(this)
+                new VerifyCommand(this),
+                new MetricCommand(this)
         );
 
         getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
