@@ -49,6 +49,18 @@ public class ConfigAdapter {
         return config.getInt("cache.refresh-seconds", 30);
     }
 
+    public int getCacheMaxEntries() {
+        return config.getInt("cache.max-entries", 0);
+    }
+
+    public int getCacheMaxEntriesPerBoard() {
+        return config.getInt("cache.max-entries-per-board", 0);
+    }
+
+    public boolean isCacheStatsEnabled() {
+        return config.getBoolean("cache.record-stats", false);
+    }
+
     public String getDatabasePassword() {
         return config.getString("database.mysql.password");
     }
@@ -59,6 +71,42 @@ public class ConfigAdapter {
 
     public int getShardMaxEntries() {
         return config.getInt("sharding.max-entries-per-shard", 10000);
+    }
+
+    public int getShardCountCacheSeconds() {
+        return config.getInt("sharding.count-cache-seconds", 10);
+    }
+
+    public int getCustomPlaceholderRefreshSeconds() {
+        return config.getInt("custom-placeholders-settings.refresh-seconds", 10);
+    }
+
+    public int getCustomPlaceholderCacheMaxPlayers() {
+        return config.getInt("custom-placeholders-settings.cache.max-players", 5000);
+    }
+
+    public int getCustomPlaceholderCacheTtlSeconds() {
+        return config.getInt("custom-placeholders-settings.cache.expire-after-access-seconds", 1800);
+    }
+
+    public boolean isHistoryJsonEnabled() {
+        return config.getBoolean("history.file.enabled", true);
+    }
+
+    public String getHistoryJsonFolder() {
+        return config.getString("history.file.folder", "historic");
+    }
+
+    public int getHistoryJsonRetentionDays() {
+        return config.getInt("history.file.retention-days", 30);
+    }
+
+    public boolean isHistoryDailyEnabled() {
+        return config.getBoolean("history.schedule.daily.enabled", true);
+    }
+
+    public boolean isHistoryWeeklyEnabled() {
+        return config.getBoolean("history.schedule.weekly.enabled", true);
     }
 
     public Map<String, CustomPlaceholder> getCustomPlaceholders() {

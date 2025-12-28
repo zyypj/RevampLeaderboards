@@ -21,11 +21,13 @@ import me.zypj.revamp.leaderboard.services.database.ShardManager;
 import me.zypj.revamp.leaderboard.services.placeholders.CustomPlaceholderService;
 import me.zypj.revamp.leaderboard.services.placeholders.PlaceholderService;
 import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @RequiredArgsConstructor
@@ -48,6 +50,9 @@ public class PluginBootstrap {
     private HistoryService historyService;
     private ShardManager shardManager;
     private PlaceholderService placeholderService;
+    private ExecutorService dbExecutor;
+    private ConfigurableApplicationContext webContext;
+    private Thread webThread;
 
     public void init() {
         setupFiles();
@@ -59,20 +64,29 @@ public class PluginBootstrap {
     public void reload() {
         plugin.reloadConfig();
         messagesAdapter.getYaml().reload();
-        applicationAdapter.getYaml().reload();
+        applicationAdapter.reload();
         boardsConfigAdapter.reload();
 
+        boardService.reloadFromConfig();
         shardManager.init();
         boardService.invalidateCache();
         boardService.init();
 
+        if (customPlaceholderService != null) customPlaceholderService.reload();
+        historyService.reload();
         schedulerService.scheduleAll();
+
+        reloadWeb();
     }
 
     public void shutdown() {
         plugin.getServer().getScheduler().cancelTasks(plugin);
 
         if (customPlaceholderService != null) customPlaceholderService.shutdown();
+        if (schedulerService != null) schedulerService.cancelAll();
+        if (historyService != null) historyService.cancelAll();
+        shutdownWeb();
+        shutdownDbExecutor();
         if (databaseService != null && !databaseService.getDataSource().isClosed()) databaseService.getDataSource().close();
     }
 
@@ -91,12 +105,12 @@ public class PluginBootstrap {
     private void setupDatabase() {
         databaseService = new DatabaseService(plugin);
 
-        ExecutorService dbExec = Executors.newFixedThreadPool(configAdapter.getDatabaseThreadPoolSize());
+        dbExecutor = Executors.newFixedThreadPool(configAdapter.getDatabaseThreadPoolSize());
 
         boardRepository = configAdapter.getDatabaseType().equalsIgnoreCase("sqlite")
-                ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExec)
-                : new JdbcBoardRepository(databaseService.getDataSource(), dbExec);
-        archiveRepository = new JdbcArchiveRepository(databaseService.getDataSource(), dbExec);
+                ? new SQLiteBoardRepository(databaseService.getDataSource(), dbExecutor)
+                : new JdbcBoardRepository(databaseService.getDataSource(), dbExecutor);
+        archiveRepository = new JdbcArchiveRepository(databaseService.getDataSource(), dbExecutor);
     }
 
     private void setupServices() {
@@ -120,6 +134,9 @@ public class PluginBootstrap {
 
         Map<String, Object> props = new HashMap<>();
         props.put("server.port", applicationAdapter.getPort());
+        if (applicationAdapter.getAddress() != null && !applicationAdapter.getAddress().isEmpty()) {
+            props.put("server.address", applicationAdapter.getAddress());
+        }
         props.put("server.servlet.context-path", applicationAdapter.getBasePath());
 
         SpringApplication app = new SpringApplication(WebConfig.class);
@@ -128,6 +145,37 @@ public class PluginBootstrap {
                 ctx.getBeanFactory().registerSingleton("pluginBootstrap", this)
         );
 
-        new Thread(app::run, applicationAdapter.getName()).start();
+        webThread = new Thread(() -> webContext = app.run(), applicationAdapter.getName());
+        webThread.setDaemon(true);
+        webThread.start();
+    }
+
+    private void reloadWeb() {
+        shutdownWeb();
+        setupWeb();
+    }
+
+    private void shutdownWeb() {
+        if (webContext != null) {
+            webContext.close();
+            webContext = null;
+        }
+        if (webThread != null) {
+            webThread.interrupt();
+            webThread = null;
+        }
+    }
+
+    private void shutdownDbExecutor() {
+        if (dbExecutor == null) return;
+        dbExecutor.shutdown();
+        try {
+            if (!dbExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                dbExecutor.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            dbExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }

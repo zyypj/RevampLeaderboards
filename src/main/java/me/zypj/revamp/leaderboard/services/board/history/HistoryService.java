@@ -9,6 +9,7 @@ import me.zypj.revamp.leaderboard.repository.ArchiveRepository;
 import me.zypj.revamp.leaderboard.services.board.BoardService;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,6 +29,9 @@ public class HistoryService {
     private final BoardService boardService;
     private final FileConfiguration cfg;
     private final Gson gson;
+    private final Map<PeriodType, LocalDateTime> lastSnapshots = new EnumMap<>(PeriodType.class);
+    private BukkitTask dailyTask;
+    private BukkitTask weeklyTask;
 
     public HistoryService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
@@ -36,8 +41,7 @@ public class HistoryService {
         this.gson = new GsonBuilder().setPrettyPrinting().create();
 
         archiveRepository.initHistoryTable();
-        scheduleDaily();
-        scheduleWeekly();
+        reload();
     }
 
     public void takeSnapshot(PeriodType period) {
@@ -45,6 +49,7 @@ public class HistoryService {
     }
 
     private void scheduleDaily() {
+        if (!plugin.getBootstrap().getConfigAdapter().isHistoryDailyEnabled()) return;
         String timeStr = cfg.getString("history.schedule.daily.time", "00:00");
         LocalTime t;
         try {
@@ -56,7 +61,7 @@ public class HistoryService {
         long delayTicks = computeDelay(t) * 20L;
         long periodTicks = 20L * 60 * 60 * 24;
 
-        new BukkitRunnable() {
+        dailyTask = new BukkitRunnable() {
             @Override
             public void run() {
                 snapshotAll(PeriodType.DAILY);
@@ -65,6 +70,7 @@ public class HistoryService {
     }
 
     private void scheduleWeekly() {
+        if (!plugin.getBootstrap().getConfigAdapter().isHistoryWeeklyEnabled()) return;
         String dayStr = cfg.getString("history.schedule.weekly.day", "MONDAY");
         String timeStr = cfg.getString("history.schedule.weekly.time", "00:00");
         DayOfWeek dow;
@@ -83,7 +89,7 @@ public class HistoryService {
         long delayTicks = computeDelay(dow, t) * 20L;
         long periodTicks = 20L * 60 * 60 * 24 * 7;
 
-        new BukkitRunnable() {
+        weeklyTask = new BukkitRunnable() {
             @Override
             public void run() {
                 snapshotAll(PeriodType.WEEKLY);
@@ -93,11 +99,7 @@ public class HistoryService {
 
     private void snapshotAll(PeriodType period) {
         LocalDateTime now = LocalDateTime.now();
-
-        for (String key : plugin.getBootstrap().getBoardsConfigAdapter().getBoards()) {
-            List<BoardEntry> entries = boardService.getLeaderboard(key, period, 0);
-            archiveRepository.saveSnapshot(key, period, now, entries);
-        }
+        lastSnapshots.put(period, now);
 
         Map<String, List<BoardEntry>> allSnapshots = plugin.getBootstrap()
                 .getBoardsConfigAdapter()
@@ -108,11 +110,18 @@ public class HistoryService {
                         key -> boardService.getLeaderboard(key, period, 0)
                 ));
 
+        for (Map.Entry<String, List<BoardEntry>> entry : allSnapshots.entrySet()) {
+            archiveRepository.saveSnapshot(entry.getKey(), period, now, entry.getValue());
+        }
+
         saveToJsonFile(period, now.toLocalDate(), allSnapshots);
     }
 
     private void saveToJsonFile(PeriodType period, LocalDate date, Map<String, List<BoardEntry>> snapshots) {
-        File folder = new File(plugin.getDataFolder(), "historic/" + period.name().toLowerCase());
+        if (!plugin.getBootstrap().getConfigAdapter().isHistoryJsonEnabled()) return;
+
+        String base = plugin.getBootstrap().getConfigAdapter().getHistoryJsonFolder();
+        File folder = new File(plugin.getDataFolder(), base + "/" + period.name().toLowerCase());
         if (!folder.exists() && !folder.mkdirs()) {
             plugin.getLogger().severe("Could not create folder: " + folder.getPath());
             return;
@@ -126,6 +135,8 @@ public class HistoryService {
         } catch (IOException e) {
             plugin.getLogger().severe("Error writing history JSON: " + e.getMessage());
         }
+
+        cleanupOldFiles(folder);
     }
 
     private long computeDelay(LocalTime t) {
@@ -141,5 +152,43 @@ public class HistoryService {
         LocalDateTime next = LocalDateTime.of(targetDate, t);
         if (!next.isAfter(LocalDateTime.now())) next = next.plusWeeks(1);
         return Duration.between(LocalDateTime.now(), next).getSeconds();
+    }
+
+    private void cleanupOldFiles(File folder) {
+        int keepDays = plugin.getBootstrap().getConfigAdapter().getHistoryJsonRetentionDays();
+        if (keepDays <= 0) return;
+
+        LocalDate cutoff = LocalDate.now().minusDays(keepDays);
+        File[] files = folder.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            String name = file.getName();
+            if (!name.endsWith(".json")) continue;
+            String dateStr = name.substring(0, name.length() - 5);
+            try {
+                LocalDate fileDate = LocalDate.parse(dateStr);
+                if (fileDate.isBefore(cutoff)) {
+                    file.delete();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    public LocalDateTime getLastSnapshot(PeriodType period) {
+        return lastSnapshots.get(period);
+    }
+
+    public void reload() {
+        cancelAll();
+        scheduleDaily();
+        scheduleWeekly();
+    }
+
+    public void cancelAll() {
+        if (dailyTask != null) dailyTask.cancel();
+        if (weeklyTask != null) weeklyTask.cancel();
+        dailyTask = null;
+        weeklyTask = null;
     }
 }

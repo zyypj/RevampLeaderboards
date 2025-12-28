@@ -32,7 +32,8 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final ShardManager shardManager;
 
-    private final LoadingCache<CacheKey, List<BoardEntry>> cache;
+    private LoadingCache<CacheKey, List<BoardEntry>> cache;
+    private int maxEntriesPerBoard;
 
     private final Map<String, String> sanitizedMap = new HashMap<>();
     private final Map<String, EnumMap<PeriodType, String>> tableMap = new HashMap<>();
@@ -48,29 +49,7 @@ public class BoardService {
         boardRepository = plugin.getBootstrap().getBoardRepository();
         this.shardManager = plugin.getBootstrap().getShardManager();
 
-        for (String raw : boardsAdapter.getBoards()) {
-            String san = sanitize(raw);
-            sanitizedMap.put(raw, san);
-            EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
-            for (PeriodType pt : PeriodType.values()) {
-                m.put(pt, san + "_" + pt.name().toLowerCase());
-            }
-            tableMap.put(raw, m);
-        }
-
-        Map<String, List<String>> composites = boardsAdapter.getCompositeBoards();
-        if (composites != null) {
-            for (Map.Entry<String, List<String>> e : composites.entrySet()) {
-                String key = sanitize(e.getKey());
-                List<String> phs = e.getValue() == null ? Collections.emptyList() : e.getValue();
-                compositeBoards.put(key, new CompositeBoard(key, phs));
-            }
-        }
-
-        this.cache = Caffeine.newBuilder()
-                .expireAfterWrite(cfg.getCacheTtlSeconds(), TimeUnit.SECONDS)
-                .refreshAfterWrite(cfg.getCacheRefreshSeconds(), TimeUnit.SECONDS)
-                .build(this::loadSharded);
+        reloadFromConfig();
     }
 
     public void init() {
@@ -80,10 +59,16 @@ public class BoardService {
         shardManager.init();
     }
 
+    public void reloadFromConfig() {
+        rebuildDefinitions();
+        pruneLastValues();
+        buildCache();
+    }
+
     public void saveOnJoin(OfflinePlayer off) {
         for (String raw : boardsAdapter.getBoards()) {
+            double v = parsePlaceholder(off, raw);
             for (Map.Entry<PeriodType, String> e : tableMap.get(raw).entrySet()) {
-                double v = parsePlaceholder(off, raw);
                 String target = shardManager.getShardForWrite(raw, e.getKey());
                 boardRepository.save(target, off.getUniqueId().toString(), off.getName(), v);
             }
@@ -91,15 +76,20 @@ public class BoardService {
     }
 
     public void updateAll() {
+        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
         for (String raw : boardsAdapter.getBoards()) {
+            Map<UUID, Double> values = new HashMap<>();
+            for (Player p : players) {
+                values.put(p.getUniqueId(), parsePlaceholder(p, raw));
+            }
             for (PeriodType period : PeriodType.values()) {
                 ConcurrentMap<UUID, Double> map = lastValues
                         .computeIfAbsent(raw + "_" + period, k -> new ConcurrentHashMap<>());
 
                 List<BoardBatchEntry> batch = new ArrayList<>();
-                for (Player p : Bukkit.getOnlinePlayers()) {
+                for (Player p : players) {
                     UUID id = p.getUniqueId();
-                    double nv = parsePlaceholder(p, raw);
+                    double nv = values.getOrDefault(id, 0d);
                     if (nv != map.getOrDefault(id, -1d)) {
                         map.put(id, nv);
                         batch.add(new BoardBatchEntry(id.toString(), p.getName(), nv));
@@ -134,13 +124,28 @@ public class BoardService {
         cache.invalidateAll();
     }
 
+    public long getCacheSize() {
+        return cache.estimatedSize();
+    }
+
+    public com.github.benmanes.caffeine.cache.stats.CacheStats getCacheStats() {
+        return cache.stats();
+    }
+
+    public int getMaxEntriesPerBoard() {
+        return maxEntriesPerBoard;
+    }
+
     public List<BoardEntry> getLeaderboard(String raw, PeriodType period, int limit) {
         if (!sanitizedMap.containsKey(raw)) throw new IllegalArgumentException("Unknown board: " + raw);
 
-        CacheKey key = new CacheKey(raw, period, limit);
+        CacheKey key = new CacheKey(raw, period);
         try {
             List<BoardEntry> originals = cache.get(key);
             assert originals != null;
+            if (limit > 0 && originals.size() > limit) {
+                return originals.subList(0, limit);
+            }
             return originals;
         } catch (Exception ex) {
             plugin.getLogger().severe("Failed to load leaderboard: " + ex.getMessage());
@@ -202,6 +207,9 @@ public class BoardService {
         boardsAdapter.removeBoard(raw);
         sanitizedMap.remove(raw);
         tableMap.remove(raw);
+        for (PeriodType pt : PeriodType.values()) {
+            lastValues.remove(raw + "_" + pt);
+        }
         shardManager.init();
     }
 
@@ -244,17 +252,22 @@ public class BoardService {
         return total;
     }
 
+    public void removePlayer(UUID playerId) {
+        for (Map<UUID, Double> map : lastValues.values()) {
+            map.remove(playerId);
+        }
+    }
 
     private List<BoardEntry> loadSharded(CacheKey key) {
         List<BoardEntry> combined = new ArrayList<>();
         for (String tbl : shardManager.getShards(key.raw, key.period)) {
-            combined.addAll(boardRepository.loadTop(tbl, Math.max(key.limit, 0)));
+            combined.addAll(boardRepository.loadTop(tbl, 0));
         }
         combined.sort(Comparator
                 .comparingDouble(BoardEntry::getValue).reversed()
                 .thenComparing(BoardEntry::getPlayerName));
-        if (key.limit > 0 && combined.size() > key.limit) {
-            return combined.subList(0, key.limit);
+        if (maxEntriesPerBoard > 0 && combined.size() > maxEntriesPerBoard) {
+            return new ArrayList<>(combined.subList(0, maxEntriesPerBoard));
         }
         return combined;
     }
@@ -262,7 +275,9 @@ public class BoardService {
     private double parsePlaceholder(OfflinePlayer off, String raw) {
         try {
             String s = PlaceholderAPI.setPlaceholders(off, "%" + raw + "%");
-            return Double.parseDouble(s);
+            if (s == null) return 0d;
+            String normalized = s.trim().replace(",", ".");
+            return Double.parseDouble(normalized);
         } catch (Exception ex) {
             return 0d;
         }
@@ -272,15 +287,64 @@ public class BoardService {
         return in.replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
     }
 
+    private void rebuildDefinitions() {
+        sanitizedMap.clear();
+        tableMap.clear();
+        compositeBoards.clear();
+
+        for (String raw : boardsAdapter.getBoards()) {
+            String san = sanitize(raw);
+            sanitizedMap.put(raw, san);
+            EnumMap<PeriodType, String> m = new EnumMap<>(PeriodType.class);
+            for (PeriodType pt : PeriodType.values()) {
+                m.put(pt, san + "_" + pt.name().toLowerCase());
+            }
+            tableMap.put(raw, m);
+        }
+
+        Map<String, List<String>> composites = boardsAdapter.getCompositeBoards();
+        if (composites != null) {
+            for (Map.Entry<String, List<String>> e : composites.entrySet()) {
+                String key = sanitize(e.getKey());
+                List<String> phs = e.getValue() == null ? Collections.emptyList() : e.getValue();
+                compositeBoards.put(key, new CompositeBoard(key, phs));
+            }
+        }
+    }
+
+    private void buildCache() {
+        ConfigAdapter cfg = plugin.getBootstrap().getConfigAdapter();
+        this.maxEntriesPerBoard = cfg.getCacheMaxEntriesPerBoard();
+
+        Caffeine<Object, Object> builder = Caffeine.newBuilder();
+        int ttl = cfg.getCacheTtlSeconds();
+        int refresh = cfg.getCacheRefreshSeconds();
+        if (ttl > 0) builder.expireAfterWrite(ttl, TimeUnit.SECONDS);
+        if (refresh > 0) builder.refreshAfterWrite(refresh, TimeUnit.SECONDS);
+        int maxEntries = cfg.getCacheMaxEntries();
+        if (maxEntries > 0) builder.maximumSize(maxEntries);
+        if (cfg.isCacheStatsEnabled()) builder.recordStats();
+
+        this.cache = builder.build(this::loadSharded);
+    }
+
+    private void pruneLastValues() {
+        Set<String> valid = new HashSet<>();
+        for (String raw : boardsAdapter.getBoards()) {
+            for (PeriodType period : PeriodType.values()) {
+                valid.add(raw + "_" + period);
+            }
+        }
+        lastValues.keySet().retainAll(valid);
+    }
+
     private static class CacheKey {
         final String raw;
         final PeriodType period;
-        final int limit;
 
-        CacheKey(String raw, PeriodType period, int limit) {
+        CacheKey(String raw, PeriodType period) {
             this.raw = raw;
             this.period = period;
-            this.limit = limit;
         }
 
         @Override
@@ -288,14 +352,13 @@ public class BoardService {
             if (this == o) return true;
             if (!(o instanceof CacheKey)) return false;
             CacheKey k = (CacheKey) o;
-            return limit == k.limit
-                    && raw.equals(k.raw)
+            return raw.equals(k.raw)
                     && period == k.period;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(raw, period, limit);
+            return Objects.hash(raw, period);
         }
     }
 }

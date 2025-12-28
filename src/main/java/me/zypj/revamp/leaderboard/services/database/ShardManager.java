@@ -17,8 +17,10 @@ public class ShardManager {
     private final BoardRepository repo;
     private final boolean enabled;
     private final int maxEntries;
+    private final long countCacheMillis;
 
     private final Map<String, Map<PeriodType, List<String>>> shards = new ConcurrentHashMap<>();
+    private final Map<String, CountSnapshot> countCache = new ConcurrentHashMap<>();
 
     public ShardManager(LeaderboardPlugin plugin) {
         this.plugin = plugin;
@@ -26,10 +28,13 @@ public class ShardManager {
         ConfigAdapter config = plugin.getBootstrap().getConfigAdapter();
         this.enabled = config.isShardingEnabled();
         this.maxEntries = config.getShardMaxEntries();
+        this.countCacheMillis = Math.max(0, config.getShardCountCacheSeconds()) * 1000L;
     }
 
     public void init() {
         if (!enabled) return;
+        shards.clear();
+        countCache.clear();
 
         for (String raw : plugin.getBootstrap().getBoardsConfigAdapter().getBoards()) {
             String base = sanitize(raw);
@@ -60,12 +65,13 @@ public class ShardManager {
 
         List<String> tbls = shards.get(raw).get(period);
         String last = tbls.get(tbls.size() - 1);
-        int cnt = repo.count(last);
+        int cnt = getCachedCount(last);
         if (cnt >= maxEntries) {
             int idx = tbls.size() + 1;
             String newName = baseName(raw, period) + "_" + idx;
             repo.initTables(Collections.singletonList(newName));
             tbls.add(newName);
+            countCache.put(newName, new CountSnapshot(0, System.currentTimeMillis()));
             plugin.getLogger().info("Created new shard table: " + newName);
             return newName;
         }
@@ -98,5 +104,29 @@ public class ShardManager {
 
     private String sanitize(String in) {
         return in.replaceAll("[^a-zA-Z0-9_]", "").toLowerCase();
+    }
+
+    private int getCachedCount(String table) {
+        if (countCacheMillis <= 0) {
+            return repo.count(table);
+        }
+        CountSnapshot snap = countCache.get(table);
+        long now = System.currentTimeMillis();
+        if (snap != null && (now - snap.timestamp) < countCacheMillis) {
+            return snap.count;
+        }
+        int cnt = repo.count(table);
+        countCache.put(table, new CountSnapshot(cnt, now));
+        return cnt;
+    }
+
+    private static class CountSnapshot {
+        final int count;
+        final long timestamp;
+
+        CountSnapshot(int count, long timestamp) {
+            this.count = count;
+            this.timestamp = timestamp;
+        }
     }
 }

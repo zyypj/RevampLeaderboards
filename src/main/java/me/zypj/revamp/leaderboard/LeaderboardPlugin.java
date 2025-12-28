@@ -17,6 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class LeaderboardPlugin extends JavaPlugin {
 
     private PluginBootstrap bootstrap;
+    private Metrics metrics;
 
     @Override
     public void onEnable() {
@@ -29,7 +30,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
             return;
         }
 
-        new Metrics(this, 26576);
+        metrics = new Metrics(this, 26576);
 
         loadBootstrap();
 
@@ -42,7 +43,8 @@ public final class LeaderboardPlugin extends JavaPlugin {
                 new ReloadCommand(this),
                 new SensiveCommand(this),
                 new VerifyCommand(this),
-                new MetricCommand(this)
+                new MetricCommand(this),
+                new MaintenanceCommand(this)
         );
 
         getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
@@ -56,6 +58,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (bootstrap != null) bootstrap.shutdown();
+        if (metrics != null) metrics.shutdown();
     }
 
     private boolean checkDependencies() {

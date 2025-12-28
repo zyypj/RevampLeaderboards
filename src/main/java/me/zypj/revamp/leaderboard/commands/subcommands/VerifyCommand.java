@@ -44,6 +44,7 @@ public class VerifyCommand implements ISubCommand {
         plugin.getBootstrap().getBoardsConfigAdapter().reload();
         sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.verify.reload"));
 
+        plugin.getBootstrap().getBoardService().reloadFromConfig();
         plugin.getBootstrap().getBoardService().invalidateCache();
         sender.sendMessage(plugin.getBootstrap().getMessagesAdapter().getMessage("commands.verify.invalidate-cache"));
 

@@ -2,8 +2,16 @@
 server:
   enable: false    # When true, the web server will start alongside the plugin
   name: "Leaderboard-Server"  # Thread name used for the HTTP server instance
+  address: ""      # Optional bind address (empty = all interfaces)
   port: 8080       # TCP port on which the server listens for incoming requests
 
 # Base path for all REST API endpoints
 app:
   base-path: /api  # Prefix applied to every API route (e.g., /api/plugin, /api/boards)
+  status:
+    enable: true           # Enable /status endpoint (read-only diagnostics)
+    include-cache: true    # Include cache stats (requires cache.record-stats=true)
+    include-shards: true   # Include shard info
+    include-history: true  # Include last snapshot times
+    include-warnings: true # Include configuration warnings
+    auth-token: ""         # Optional token for /status (send X-Auth-Token header)

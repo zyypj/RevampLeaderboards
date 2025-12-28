@@ -6,33 +6,46 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 public class CustomPlaceholderService {
 
     private final LeaderboardPlugin plugin;
     private final DataSource dataSource;
-    private final Map<String, CustomPlaceholder> placeholders;
+    private Map<String, CustomPlaceholder> placeholders;
     private final boolean isSqlite;
 
-    private final ConcurrentMap<UUID, ConcurrentMap<String, String>> cache = new ConcurrentHashMap<>();
-    private final BukkitTask refreshTask;
+    private final Cache<UUID, ConcurrentMap<String, String>> cache;
+    private BukkitTask refreshTask;
 
     public CustomPlaceholderService(LeaderboardPlugin plugin) {
         this.plugin = plugin;
         this.dataSource = plugin.getBootstrap().getDatabaseService().getDataSource();
         this.placeholders = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
         this.isSqlite = plugin.getBootstrap().getConfigAdapter().getDatabaseType().equalsIgnoreCase("sqlite");
+        int maxPlayers = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholderCacheMaxPlayers();
+        int ttlSeconds = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholderCacheTtlSeconds();
+        Caffeine<Object, Object> builder = Caffeine.newBuilder();
+        if (ttlSeconds > 0) {
+            builder.expireAfterAccess(ttlSeconds, TimeUnit.SECONDS);
+        }
+        if (maxPlayers > 0) {
+            builder.maximumSize(maxPlayers);
+        }
+        this.cache = builder.build();
 
         initTable();
         loadAllFromDb();
 
-        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAllOnline, 0L, 20L * 10L);
+        scheduleRefreshTask();
     }
 
     private void initTable() {
@@ -55,7 +68,7 @@ public class CustomPlaceholderService {
                 UUID id = UUID.fromString(rs.getString("player_uuid"));
                 String type = rs.getString("data_type");
                 String val = rs.getString("value");
-                cache.computeIfAbsent(id, k -> new ConcurrentHashMap<>())
+                cache.get(id, k -> new ConcurrentHashMap<>())
                         .put(type, val);
             }
         } catch (SQLException ex) {
@@ -64,6 +77,7 @@ public class CustomPlaceholderService {
     }
 
     private void refreshAllOnline() {
+        if (placeholders.isEmpty()) return;
         for (Player p : Bukkit.getOnlinePlayers())
             updatePlayer(p);
     }
@@ -74,7 +88,7 @@ public class CustomPlaceholderService {
             return;
         }
         UUID id = p.getUniqueId();
-        ConcurrentMap<String, String> mem = cache.computeIfAbsent(id, k -> new ConcurrentHashMap<>());
+        ConcurrentMap<String, String> mem = cache.get(id, k -> new ConcurrentHashMap<>());
         List<String> changed = new ArrayList<>();
 
         for (CustomPlaceholder cp : placeholders.values()) {
@@ -119,12 +133,33 @@ public class CustomPlaceholderService {
     }
 
     public String getValue(UUID id, String type) {
-        return cache.getOrDefault(id, new ConcurrentHashMap<>())
-                .getOrDefault(type, "");
+        ConcurrentMap<String, String> mem = cache.getIfPresent(id);
+        if (mem == null) return "";
+        return mem.getOrDefault(type, "");
     }
 
     public void shutdown() {
         if (refreshTask != null) refreshTask.cancel();
+    }
+
+    public void reload() {
+        this.placeholders = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders();
+        scheduleRefreshTask();
+    }
+
+    public void evictPlayer(UUID id) {
+        cache.invalidate(id);
+    }
+
+    private void scheduleRefreshTask() {
+        if (refreshTask != null) refreshTask.cancel();
+        int refreshSeconds = plugin.getBootstrap().getConfigAdapter().getCustomPlaceholderRefreshSeconds();
+        if (refreshSeconds > 0) {
+            refreshTask = Bukkit.getScheduler()
+                    .runTaskTimer(plugin, this::refreshAllOnline, 0L, 20L * refreshSeconds);
+        } else {
+            refreshTask = null;
+        }
     }
 
     private void executeUpdate(String sql) {

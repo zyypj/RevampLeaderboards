@@ -13,8 +13,16 @@ database:
 cache:
   # Time‑to‑live for cache entries, in seconds
   ttl-seconds: 30
+  # Set to 0 to disable expiration (not recommended)
   # Time after which cache entries will be automatically refreshed, in seconds
   refresh-seconds: 30
+  # Set to 0 to disable refresh
+  # Max number of cached board+period entries in memory (0 = unlimited)
+  max-entries: 0
+  # Max number of entries kept per board+period list (0 = keep all)
+  max-entries-per-board: 0
+  # Record cache stats for the web status endpoint
+  record-stats: false
 
 sharding:
   # If true, enables the “sharding” system (splitting leaderboard data into multiple
@@ -25,6 +33,8 @@ sharding:
   # Once this limit is reached, the plugin automatically creates a new table
   # to store the next records.
   max-entries-per-shard: 100
+  # Cache shard row counts to reduce COUNT(*) calls (seconds, 0 = disabled)
+  count-cache-seconds: 10
 
 custom-placeholders:
   # Definition of custom placeholders by index
@@ -45,8 +55,20 @@ custom-placeholders:
     # PlaceholderAPI expression to fetch the guild color tag
     placeholder: "%leafguilds_guild_colortag%"
 
+custom-placeholders-settings:
+  # How often to refresh custom placeholders for online players (seconds, 0 = disabled)
+  refresh-seconds: 10
+  cache:
+    # Max number of player entries kept in memory (0 = unlimited)
+    max-players: 5000
+    # Evict player cache entries after this idle time (seconds)
+    expire-after-access-seconds: 1800
+    # Set to 0 to disable eviction (not recommended)
+
 scheduler:
   update:
+    # Enable periodic updateAll() task
+    enabled: true
     # Initial delay before the first updateAll() run, in seconds
     initial-delay-seconds: 1
     # Interval between subsequent updateAll() runs, in seconds
@@ -54,16 +76,22 @@ scheduler:
 
   reset:
     daily:
+      # Enable daily leaderboard reset
+      enabled: true
       # Time of day for daily leaderboard reset (HH:mm)
       time: "00:00"
 
     weekly:
+      # Enable weekly leaderboard reset
+      enabled: true
       # Day of week for weekly leaderboard reset (MONDAY, TUESDAY, …, SUNDAY)
       day: "SUNDAY"
       # Time of day for weekly leaderboard reset (HH:mm)
       time: "00:00"
 
     monthly:
+      # Enable monthly leaderboard reset
+      enabled: true
       # Day of month for monthly leaderboard reset (1–31)
       day: 1
       # Time of day for monthly leaderboard reset (HH:mm)
@@ -72,10 +100,53 @@ scheduler:
 history:
   schedule:
     daily:
+      # Enable daily snapshots
+      enabled: true
       # Time of day to capture daily history snapshot (HH:mm)
       time: "00:00"
     weekly:
+      # Enable weekly snapshots
+      enabled: true
       # Day of week to capture weekly history snapshot (MONDAY, TUESDAY, …, SUNDAY)
       day: "MONDAY"
       # Time of day to capture weekly history snapshot (HH:mm)
       time: "00:00"
+  file:
+    # Save snapshots to JSON files
+    enabled: true
+    # Base folder inside the plugin data folder
+    folder: "historic"
+    # Delete history JSON files older than this many days (0 = keep forever)
+    retention-days: 30
+
+maintenance:
+  backup:
+    # Enable quick backups via /lb maintenance backup
+    enabled: true
+    # Folder inside the plugin data folder
+    folder: "backups"
+    # Keep only the last N backups (0 = keep all)
+    keep-last: 10
+    include:
+      config-yml: true
+      boards-yml: true
+      messages-yml: true
+      application-yml: true
+  export:
+    # Enable exports via /lb maintenance export
+    enabled: true
+    folder: "exports"
+    include:
+      config-yml: true
+      boards-yml: true
+      messages-yml: true
+      application-yml: true
+  import:
+    # Enable imports via /lb maintenance import
+    enabled: true
+    # Read exports from this folder
+    folder: "exports"
+    # Overwrite existing files when importing
+    allow-overwrite: false
+    # Reload config after a successful import
+    auto-reload: true
