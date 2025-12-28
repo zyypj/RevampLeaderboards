@@ -22,7 +22,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
     public void onEnable() {
         Stopwatch stopwatch = Stopwatch.createStarted();
         getLogger().info("");
-        getLogger().info("Iniciando plugin...");
+        getLogger().info("Starting plugin...");
 
         if (!checkDependencies()) {
             getServer().getPluginManager().disablePlugin(this);
@@ -49,7 +49,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
         registerApi();
 
-        getLogger().info("Plugin iniciado em " + stopwatch.stop() + "!");
+        getLogger().info("Plugin started in " + stopwatch.stop() + "!");
         getLogger().info("");
     }
 
@@ -60,7 +60,7 @@ public final class LeaderboardPlugin extends JavaPlugin {
 
     private boolean checkDependencies() {
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") == null) {
-            getLogger().severe("PlaceholderAPI não encontrado, desligando plugin...");
+            getLogger().severe("PlaceholderAPI not founded! Shutting down...");
             return false;
         }
 

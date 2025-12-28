@@ -15,10 +15,9 @@ repositories {
 }
 
 dependencies {
-    compileOnly files(
-            "libs/spigot-1.8.8.jar",
-    )
     compileOnly(
+            files("libs/spigot-1.8.8.jar"),
+
             'me.clip:placeholderapi:2.11.6',
             'org.bstats:bstats-bukkit:3.0.2'
     )
@@ -61,7 +60,9 @@ processResources {
 
 shadowJar {
     archiveClassifier.set('')
-    minimize()
+    minimize {
+        exclude(dependency('com.github.ben-manes.caffeine:caffeine:2.9.3'))
+    }
     mergeServiceFiles()
     zip64 true
 

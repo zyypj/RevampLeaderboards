@@ -1,7 +1,5 @@
 messages:
   no-permission: "&4&lERROR! &cYou do not have permission to do that!"
-  nobody: "Nobody"
-  not-load: "---"
   # Template for days (singular/plural)
   when-days-missing: "{dd} {day-meaning}"
   # Template for hours (singular/plural)
@@ -22,6 +20,8 @@ messages:
   meaning-seconds: "seconds"
   meaning-second: "second"
   meaning-never: "Never"
+  meaning-nobody: "Nobody"
+  meaning-not-load: "---"
 
   commands:
     usage: "&4&lERROR! &cUse: {label} <subcommand>."
@@ -40,8 +40,10 @@ messages:
     board:
       usage: "&4&lERROR! &cUse: {usage}."
       add:
-        usage: "&4&lERROR! &cUse: {usage}."
-        board-added: "&aBoard '{board}' added successfully!"
+        usage: "&4&lERROR! &cUse: /lb board add <placeholder>"
+        already-exists: "&cThe board &f{board} &calready exists."
+        invalid-numeric: "&cThe placeholder &f{placeholder} &cdoes not return a numeric value (resolved: &f{resolved}&c)."
+        created: "&aSimple board &f{board} &acreated successfully!"
       remove:
         usage: "&4&lERROR! &cUse: {usage}."
         board-del: "&eBoard '{board}' removed successfully!"

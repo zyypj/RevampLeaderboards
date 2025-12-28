@@ -213,6 +213,7 @@ public class PlaceholderService {
         BoardEntry entry = list.get(position - 1);
         switch (dataType) {
             case "playername":
+            case "display":
                 return entry.getPlayerName();
             case "uuid":
                 return entry.getUuid();

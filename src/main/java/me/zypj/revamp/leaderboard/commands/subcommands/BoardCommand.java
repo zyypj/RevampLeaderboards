@@ -6,7 +6,10 @@ import me.zypj.revamp.leaderboard.LeaderboardPlugin;
 import me.zypj.revamp.leaderboard.commands.ISubCommand;
 import me.zypj.revamp.leaderboard.enums.PeriodType;
 import me.zypj.revamp.leaderboard.model.BoardEntry;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -52,6 +55,48 @@ public class BoardCommand implements ISubCommand {
         String action = args[0].toLowerCase(Locale.ROOT);
         switch (action) {
 
+            case "add": {
+                if (args.length < 2) {
+                    sender.sendMessage(plugin.getBootstrap()
+                            .getMessagesAdapter()
+                            .getMessage("commands.board.add.usage"));
+                    return false;
+                }
+
+                String rawInput = args[1];
+                String key = sanitize(rawInput);
+
+                boolean existsSimple = plugin.getBootstrap().getBoardService().getBoards().contains(key);
+                boolean existsComposite = plugin.getBootstrap().getBoardService().isComposite(key);
+
+                if (existsSimple || existsComposite) {
+                    sender.sendMessage(plugin.getBootstrap()
+                            .getMessagesAdapter()
+                            .getMessage("commands.board.add.already-exists")
+                            .replace("{board}", key));
+                    return false;
+                }
+
+                String placeholder = "%" + key + "%";
+                String resolved = safeResolve(placeholder, sender);
+                if (!validatePlaceholder(resolved)) {
+                    sender.sendMessage(plugin.getBootstrap()
+                            .getMessagesAdapter()
+                            .getMessage("commands.board.add.invalid-numeric")
+                            .replace("{placeholder}", placeholder)
+                            .replace("{resolved}", resolved == null ? "null" : resolved));
+                    return false;
+                }
+
+                plugin.getBootstrap().getBoardService().addBoard(key);
+
+                sender.sendMessage(plugin.getBootstrap()
+                        .getMessagesAdapter()
+                        .getMessage("commands.board.add.created")
+                        .replace("{board}", key));
+                break;
+            }
+
             case "addcomposite": {
                 if (args.length < 3) {
                     sender.sendMessage(plugin.getBootstrap()
@@ -73,7 +118,7 @@ public class BoardCommand implements ISubCommand {
                 }
 
                 for (String ph : placeholders) {
-                    String resolved = safeResolve(ph);
+                    String resolved = safeResolve(ph, sender);
                     if (!validatePlaceholder(resolved)) {
                         sender.sendMessage(plugin.getBootstrap()
                                 .getMessagesAdapter()
@@ -189,7 +234,7 @@ public class BoardCommand implements ISubCommand {
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            return Stream.of("addcomposite", "remove", "list", "test")
+            return Stream.of("add", "addcomposite", "remove", "list", "test")
                     .filter(s -> s.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
@@ -211,6 +256,15 @@ public class BoardCommand implements ISubCommand {
                         .filter(ph -> ph.startsWith(last))
                         .collect(Collectors.toList());
             }
+
+            if ("add".equals(sub)) {
+                if (args.length == 2) {
+                    return plugin.getBootstrap().getConfigAdapter().getCustomPlaceholders().values().stream()
+                            .map(cp -> cp.getPlaceholder().replace("%", "").toLowerCase(Locale.ROOT))
+                            .filter(ph -> ph.startsWith(last))
+                            .collect(Collectors.toList());
+                }
+            }
         }
         return Collections.emptyList();
     }
@@ -226,13 +280,22 @@ public class BoardCommand implements ISubCommand {
         }
     }
 
-    private String safeResolve(String ph) {
+    private String safeResolve(String ph, CommandSender sender) {
         try {
-            return PlaceholderAPI.setPlaceholders(null, ph);
+            OfflinePlayer off = null;
+            if (sender instanceof Player) {
+                off = (Player) sender;
+            } else {
+                if (!Bukkit.getOnlinePlayers().isEmpty()) {
+                    off = Bukkit.getOnlinePlayers().iterator().next();
+                }
+            }
+            return PlaceholderAPI.setPlaceholders(off, ph);
         } catch (Throwable t) {
             return null;
         }
     }
+
 
     private String sanitize(String in) {
         return in.replace("%", "").replaceAll("[^a-zA-Z0-9_]", "").toLowerCase(Locale.ROOT);
